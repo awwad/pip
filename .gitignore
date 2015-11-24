@@ -9,3 +9,6 @@ MANIFEST
 *~
 .coverage
 coverage.xml
+venv3/
+
+.cache/v/cache/lastfailed

@@ -520,7 +520,7 @@ disable_pip_version_check = partial(
     dest="disable_pip_version_check",
     action="store_true",
     default=False,
-    help="Don't periodically check PyPI to determine whether a new version "
+    help="--TESTING-- POTATO -- Don't periodically check PyPI to determine whether a new version "
          "of pip is available for download. Implied with --no-index.")
 
 # Deprecated, Remove later
