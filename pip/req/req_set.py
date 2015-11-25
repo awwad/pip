@@ -321,7 +321,7 @@ class RequirementSet(object):
             more_reqs = handler(req_to_install)
             if more_reqs:
                 discovered_reqs.extend(more_reqs)
-                # <~> Fiddling
+                # <~> Fiddling --
                 print("   <~> Discovered:",req_to_install.name,"has reqs:", str(more_reqs))
                 print("       "+str(self.requirements.keys()))
             else: # <~>
