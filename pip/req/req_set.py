@@ -22,6 +22,7 @@ from pip.utils.hashes import MissingHashes
 from pip.utils.logging import indent_log
 from pip.vcs import vcs
 
+import ipdb # <~>
 
 logger = logging.getLogger(__name__)
 
@@ -350,6 +351,7 @@ class RequirementSet(object):
         # based on link type.
         discovered_reqs = []
         hash_errors = HashErrors()
+        #ipdb.set_trace() # <~>
         for req in chain(root_reqs, discovered_reqs):
             try:
                 discovered_reqs.extend(self._prepare_file(
@@ -444,7 +446,7 @@ class RequirementSet(object):
             assert req_to_install.satisfied_by is None
             if not self.ignore_installed:
                 skip_reason = self._check_skip_installed(
-                    req_to_install, finder)
+                    req_to_install, finder) # determine whether or not to skip this requirement based on several options and install state
 
             if req_to_install.satisfied_by:
                 assert skip_reason is not None, (
@@ -654,8 +656,22 @@ class RequirementSet(object):
                 available_requested = sorted(
                     set(dist.extras) & set(req_to_install.extras)
                 )
-                for subreq in dist.requires(available_requested):
-                    add_req(subreq)
+                for subreq in dist.requires(available_requested): # dist.requires returns all the requirements parsed for this dist
+                    # <~> adding conflict detection
+                    # Does this subreq's package name exist in the existing requirements for this requirement set?
+                    # if subreq.key in [v.req.key for v in self.requirements.values()]:
+                    #   print("    <~> Potential conflict detected: pre-existing requirement.")
+                    for old_install_req in self.requirements.values():
+                      if old_install_req.req.project_name == subreq.project_name:
+                        if old_install_req.req.specs == subreq.specs:
+                          print("    <~> Debug Info: Multiple packages to be installed have the same dependency, but the requirement specification is the same. All is well.")
+                        else:
+                          # ipdb.set_trace() # <~>
+                          #print("    <~> Debug Warn: Potential conflict detected: pre-existing requirement",str(old_install_req.req)," has same package name as newly discovered requirement but with a different specification:",str(subreq),"from dist",str(dist))
+                          # Todo: Add logic here to distinguish possible conflict from actual conflict.
+                          raise Exception("<~> Possible conflict detected. Pre-existing requirement",str(old_install_req.req)," has same package name as newly discovered requirement but with a different specification:",str(subreq),"from dist",str(dist))
+                    # <~> end
+                    add_req(subreq) # and here, we add them to the requirement set via helper function above
 
             # cleanup tmp src
             self.reqs_to_cleanup.append(req_to_install)
