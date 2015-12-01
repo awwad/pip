@@ -5,14 +5,13 @@ from itertools import chain, groupby, repeat
 
 from pip._vendor.six import iteritems
 
-# <~> Adding exception type for package dependency conflict
-class DependencyConflictError():
-  """<~> Raised when a dependency conflict is detected while attempting to install a package."""
-# <~> end
-
 class PipError(Exception):
     """Base pip exception"""
 
+# <~> Adding exception type for package dependency conflict
+class DependencyConflictError(PipError):
+  """<~> Raised when a dependency conflict is detected while attempting to install a package."""
+# <~> end
 
 class InstallationError(PipError):
     """General exception during installation"""

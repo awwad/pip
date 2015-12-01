@@ -61,6 +61,15 @@ class InstallCommand(RequirementCommand):
         cmd_opts.add_option(cmdoptions.requirements())
         cmd_opts.add_option(cmdoptions.build_dir())
 
+        # <~> Adding an option to check for dependency conflicts instead of installing.
+        cmd_opts.add_option(
+            '--find-dep-conflicts',
+            dest='find_dep_conflicts',
+            action='store_true',
+            help='<~> Instead of installing, simply check for dependency conflicts '
+                 'and raise an error if a conflict is detected.')
+        # <~> end
+
         cmd_opts.add_option(
             '-t', '--target',
             dest='target_dir',
@@ -280,6 +289,7 @@ class InstallCommand(RequirementCommand):
                     isolated=options.isolated_mode,
                     wheel_cache=wheel_cache,
                     require_hashes=options.require_hashes,
+                    find_dep_conflicts=options.find_dep_conflicts, # <~>
                 )
 
                 self.populate_requirement_set(

@@ -11,3 +11,8 @@ MANIFEST
 coverage.xml
 
 venv3
+
+_s_deps_from_pip.json
+
+*.whl
+*.gz

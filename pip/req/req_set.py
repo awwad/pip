@@ -14,7 +14,8 @@ from pip.download import (is_file_url, is_dir_url, is_vcs_url, url_to_path,
 from pip.exceptions import (InstallationError, BestVersionAlreadyInstalled,
                             DistributionNotFound, PreviousBuildDirError,
                             HashError, HashErrors, HashUnpinned,
-                            DirectoryUrlHashUnsupported, VcsHashUnsupported)
+                            DirectoryUrlHashUnsupported, VcsHashUnsupported,
+                            DependencyConflictError) # <~>
 from pip.req.req_install import InstallRequirement
 from pip.utils import (
     display_path, dist_in_usersite, ensure_dir, normalize_path)
@@ -23,6 +24,7 @@ from pip.utils.logging import indent_log
 from pip.vcs import vcs
 
 import ipdb # <~>
+import json # <~>
 
 logger = logging.getLogger(__name__)
 
@@ -145,7 +147,8 @@ class RequirementSet(object):
                  ignore_dependencies=False, force_reinstall=False,
                  use_user_site=False, session=None, pycompile=True,
                  isolated=False, wheel_download_dir=None,
-                 wheel_cache=None, require_hashes=False):
+                 wheel_cache=None, require_hashes=False,
+                 find_dep_conflicts=False): # <~>
         """Create a RequirementSet.
 
         :param wheel_download_dir: Where still-packed .whl files should be
@@ -194,6 +197,7 @@ class RequirementSet(object):
         self.require_hashes = require_hashes
         # Maps from install_req -> dependencies_of_install_req
         self._dependencies = defaultdict(list)
+        self.find_dep_conflicts = find_dep_conflicts # <~>
 
     def __str__(self):
         reqs = [req for req in self.requirements.values()
@@ -365,6 +369,9 @@ class RequirementSet(object):
 
         if hash_errors:
             raise hash_errors
+
+        if self.find_dep_conflicts: # <~>
+          print("    <~> Success - found no dependency conflicts.") # <~>
 
     def _check_skip_installed(self, req_to_install, finder):
         """Check if req_to_install should be skipped.
@@ -656,21 +663,79 @@ class RequirementSet(object):
                 available_requested = sorted(
                     set(dist.extras) & set(req_to_install.extras)
                 )
+                
+
+                # <~> -------------------------------
+                # <~> -------------------------------
+                # <~> adding package dependency recording
+                #     (This obviously needs to be tidied up! Bad big O, etc.)
+                #     JSON can't use a tuple-keyed dictionary, so for the dependencies
+                #       dict, I'm using a single string with parens. (See distkey below.)
+                # <~> -------------------------------
+                # <~> -------------------------------
+                #ipdb.set_trace() # <~>
+                dist_reqs = dist.requires(available_requested)
+                global dependencies_by_dist # rushing for now
+                try: # If the global is not defined yet, load the contents of the json file.
+                  dependencies_by_dist
+                except NameError:
+                  dependencies_by_dist = None
+                  # <~> Fill with JSON data from file.
+                  with open("/Users/s/w/github/pipdevelop/_s_deps_from_pip.json","r") as fobj:
+                    try:
+                      dependencies_by_dist = json.load(fobj)
+                    except ValueError:
+                      dependencies_by_dist = dict() # If it was invalid or empty, replace with empty.
+
+                distkey = dist.project_name + "(" + dist.version + ")"
+                
+                ## Don't reproduce effort?
+                #if (distkey) not in dependencies_by_dist:
+                #  dependencies_by_dist[distkey] = []
+                # Overwrite each time.
+                dependencies_by_dist[distkey] = []
+
+                print("    "+str(dist),"depends on",str(dist_reqs))
+                for subreq in dist_reqs:
+                  dependencies_by_dist[distkey].append( (subreq.project_name, subreq.specs))
+
+                # <~> Write the dependency data back to file.
+                with open("/Users/s/w/github/pipdevelop/_s_deps_from_pip.json","w") as fobj:
+                  json.dump(dependencies_by_dist, fobj)
+                  
+
+                # <~> -------------------------------
+                # <~> end - of package dependency recording section
+                # <~> -------------------------------
+
                 for subreq in dist.requires(available_requested): # dist.requires returns all the requirements parsed for this dist
+                    # <~> -------------------------------
+                    # <~> -------------------------------
                     # <~> adding conflict detection
+                    # <~> -------------------------------
+                    # <~> -------------------------------
                     # Does this subreq's package name exist in the existing requirements for this requirement set?
                     # if subreq.key in [v.req.key for v in self.requirements.values()]:
                     #   print("    <~> Potential conflict detected: pre-existing requirement.")
-                    for old_install_req in self.requirements.values():
-                      if old_install_req.req.project_name == subreq.project_name:
-                        if old_install_req.req.specs == subreq.specs:
-                          print("    <~> Debug Info: Multiple packages to be installed have the same dependency, but the requirement specification is the same. All is well.")
-                        else:
-                          # ipdb.set_trace() # <~>
-                          #print("    <~> Debug Warn: Potential conflict detected: pre-existing requirement",str(old_install_req.req)," has same package name as newly discovered requirement but with a different specification:",str(subreq),"from dist",str(dist))
-                          # Todo: Add logic here to distinguish possible conflict from actual conflict.
-                          raise Exception("<~> Possible conflict detected. Pre-existing requirement",str(old_install_req.req)," has same package name as newly discovered requirement but with a different specification:",str(subreq),"from dist",str(dist))
-                    # <~> end
+                    if self.find_dep_conflicts:
+                      for old_install_req in self.requirements.values():
+                        if old_install_req.req.project_name == subreq.project_name:
+                          if old_install_req.req.specs == subreq.specs:
+                            print("    <~> Debug Info: Multiple packages to be installed have the same dependency, but the requirement specification is the same. All is well.")
+                          else:
+                            #ipdb.set_trace() # <~>
+                            # Todo: Add logic here to distinguish possible conflict from practical, probable conflict. (See daily notes 2015.11.30, option 2b)
+                            exception_string = '<~> Possible conflict detected.\n    '
+                            if old_install_req.comes_from is None:
+                              exception_string += 'original instruction included requirement '
+                            else:
+                              exception_string += old_install_req.comes_from.name + ' had requirement '
+                            exception_string += str(old_install_req.req)
+                            exception_string += '\n    ' + str(dist)+' has requirement '+str(subreq)
+                            raise DependencyConflictError(exception_string)
+                    # <~> -------------------------------
+                    # <~> end - of conflict detection section
+                    # <~> -------------------------------
                     add_req(subreq) # and here, we add them to the requirement set via helper function above
 
             # cleanup tmp src
