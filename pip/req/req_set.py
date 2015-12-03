@@ -852,24 +852,12 @@ class RequirementSet(object):
       global conflicts_by_dist
       _s_ensure_dep_conflicts_global_defined()
 
+      # This line is breaking.
       initial_req_distkey = _s_get_distkey(initial_req.get_dist())
       conflicts_by_dist[initial_req_distkey] = conflict_exists
       _s_write_dep_conflicts_global()
       
   
-    
-      # Now, the conflict needs to be stored using the initial requirements passed to pip.
-      # That is, all values of self.requirements.values() for which comes_from is None.
-      # for req in self.requirements.values():
-      #   if req.comes_from is None:
-      #     make note of that req as a top level requirement
-      # if there is one top level requirement:
-      #   make note that there is a conflict for that specific requirement
-      # else there are multiple top level requirements:
-      #   i suppose we could store elsewhere that those two requirements together yield a conflict,
-      #   but that space is vast and the information is slightly less useful.
-      
-
       
 # <~> end of class RequirementSet
 
