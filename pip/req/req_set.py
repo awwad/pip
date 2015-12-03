@@ -731,7 +731,7 @@ class RequirementSet(object):
                             exception_string += str(old_install_req.req)
                             exception_string += '\n    ' + str(dist)+' has requirement '+str(subreq)
 
-                            ipdb.set_trace()
+                            #ipdb.set_trace()
                             self._s_report_conflict(True, exception_string)
                             
                             raise DependencyConflictError(exception_string)
@@ -839,7 +839,7 @@ class RequirementSet(object):
 
       # Find out what the initial install requirements were, because we now know that those have a conflict.
       # (Currently assuming one initial install requirement.)
-      ipdb.set_trace()
+      #ipdb.set_trace()
       all_known_reqs = self.requirements.values()
       initial_reqs = [req for req in self.requirements.values() if req.comes_from is None]
 
