@@ -25,6 +25,10 @@ from pip.vcs import vcs
 
 import ipdb # <~>
 import json # <~>
+_S_DEPENDENCIES_DB_FILENAME = "/Users/s/w/git/pypi-depresolve/_s_deps_from_pip.json"
+_S_DEPENDENCY_CONFLICTS_DB_FILENAME = "/Users/s/w/git/pypi-depresolve/_s_deps_conflicts_from_pip.json"
+#_S_DEPENDENCIES_LOG_FILENAME = "/Users/s/w/git/pypi-depresolve/_s_deps_from_pip.json"
+_S_DEPENDENCIES_CONFLICT_LOG_FILENAME = "/Users/s/w/git/pypi-depresolve/_s_deps_conflicts_from_pip.log"
 
 logger = logging.getLogger(__name__)
 
@@ -372,6 +376,8 @@ class RequirementSet(object):
 
         if self.find_dep_conflicts: # <~>
           print("    <~> Success - found no dependency conflicts.") # <~>
+          self._s_report_conflict(False, "") # <~>
+
 
     def _check_skip_installed(self, req_to_install, finder):
         """Check if req_to_install should be skipped.
@@ -676,18 +682,10 @@ class RequirementSet(object):
                 #ipdb.set_trace() # <~>
                 dist_reqs = dist.requires(available_requested)
                 global dependencies_by_dist # rushing for now
-                try: # If the global is not defined yet, load the contents of the json file.
-                  dependencies_by_dist
-                except NameError:
-                  dependencies_by_dist = None
-                  # <~> Fill with JSON data from file.
-                  with open("/Users/s/w/github/pipdevelop/_s_deps_from_pip.json","r") as fobj:
-                    try:
-                      dependencies_by_dist = json.load(fobj)
-                    except ValueError:
-                      dependencies_by_dist = dict() # If it was invalid or empty, replace with empty.
+                # Ensure that the dependency dictionary is defined, importing it from its file if not.
+                _s_ensure_dependencies_global_defined()
 
-                distkey = dist.project_name + "(" + dist.version + ")"
+                distkey = _s_get_distkey(dist)
                 
                 ## Don't reproduce effort?
                 #if (distkey) not in dependencies_by_dist:
@@ -695,14 +693,14 @@ class RequirementSet(object):
                 # Overwrite each time.
                 dependencies_by_dist[distkey] = []
 
+
                 print("    "+str(dist),"depends on",str(dist_reqs))
                 for subreq in dist_reqs:
-                  dependencies_by_dist[distkey].append( (subreq.project_name, subreq.specs))
+                  dependencies_by_dist[distkey].append( (subreq.project_name, subreq.specs) )
 
-                # <~> Write the dependency data back to file.
-                with open("/Users/s/w/github/pipdevelop/_s_deps_from_pip.json","w") as fobj:
-                  json.dump(dependencies_by_dist, fobj)
-                  
+                # <~> Write the dependency data from the global back to file.
+                _s_write_dependencies_global()
+
 
                 # <~> -------------------------------
                 # <~> end - of package dependency recording section
@@ -732,6 +730,10 @@ class RequirementSet(object):
                               exception_string += old_install_req.comes_from.name + ' had requirement '
                             exception_string += str(old_install_req.req)
                             exception_string += '\n    ' + str(dist)+' has requirement '+str(subreq)
+
+                            ipdb.set_trace()
+                            self._s_report_conflict(True, exception_string)
+                            
                             raise DependencyConflictError(exception_string)
                     # <~> -------------------------------
                     # <~> end - of conflict detection section
@@ -824,3 +826,113 @@ class RequirementSet(object):
                 requirement.remove_temporary_source()
 
         self.successfully_installed = to_install
+
+
+    # <~> Class method to report that a given initial requirement has or has not resulted in a dependency conflict.
+    def _s_report_conflict(self, conflict_exists, exception_string):
+      assert(conflict_exists in [True, False]) # Expecting a boolean.
+      assert(type(exception_string) is str) # Expecting a string.
+
+      if conflict_exists:
+        with open(_S_DEPENDENCIES_CONFLICT_LOG_FILENAME,"a") as fobj_conflicts_log:
+          fobj_conflicts_log.write(exception_string)
+
+      # Find out what the initial install requirements were, because we now know that those have a conflict.
+      # (Currently assuming one initial install requirement.)
+      ipdb.set_trace()
+      all_known_reqs = self.requirements.values()
+      initial_reqs = [req for req in self.requirements.values() if req.comes_from is None]
+
+      if len(initial_reqs) != 1:
+        raise Exception("Detected conflict, but found multiple initial requirements. This does not match programmer's expectations. If you tried testing multiple packages for dependencies at the same time, try one at a time instead.")
+
+      initial_req = initial_reqs[0]
+
+      global conflicts_by_dist
+      _s_ensure_dep_conflicts_global_defined()
+
+      initial_req_distkey = _s_get_distkey(initial_req.get_dist())
+      conflicts_by_dist[initial_req_distkey] = conflict_exists
+      _s_write_dep_conflicts_global()
+      
+  
+    
+      # Now, the conflict needs to be stored using the initial requirements passed to pip.
+      # That is, all values of self.requirements.values() for which comes_from is None.
+      # for req in self.requirements.values():
+      #   if req.comes_from is None:
+      #     make note of that req as a top level requirement
+      # if there is one top level requirement:
+      #   make note that there is a conflict for that specific requirement
+      # else there are multiple top level requirements:
+      #   i suppose we could store elsewhere that those two requirements together yield a conflict,
+      #   but that space is vast and the information is slightly less useful.
+      
+
+      
+# <~> end of class RequirementSet
+
+
+
+# <~> Helper function to determine the key for a given distribution to be used in the
+#       dependency conflict db and the dependencies db.
+def _s_get_distkey(dist):
+  return dist.project_name + "(" + dist.version + ")"
+
+# <~> Helper function to ensure that the global dependencies dictionary is defined,
+#       importing it now if not.
+def _s_ensure_dependencies_global_defined():
+  global dependencies_by_dist
+  try: # If the global is not defined yet, load the contents of the json file.
+    dependencies_by_dist
+  except NameError:
+    dependencies_by_dist = None
+    # <~> Fill with JSON data from file.
+    with open(_S_DEPENDENCIES_DB_FILENAME,"r") as fobj:
+      try:
+        dependencies_by_dist = json.load(fobj)
+      except ValueError:
+        dependencies_by_dist = dict() # If it was invalid or empty, replace with empty.
+
+# <~> Helper function to write the dependencies global to its file.
+def _s_write_dependencies_global():
+  global dependencies_by_dist
+  with open(_S_DEPENDENCIES_DB_FILENAME,"w") as fobj:
+    json.dump(dependencies_by_dist, fobj)
+
+# <~> Helper function to ensure that the global dependencies dictionary is defined,
+#       importing it now if not.
+def _s_ensure_dependencies_global_defined():
+  global dependencies_by_dist
+  try: # If the global is not defined yet, load the contents of the json file.
+    dependencies_by_dist
+  except NameError:
+    dependencies_by_dist = None
+    # <~> Fill with JSON data from file.
+    with open(_S_DEPENDENCIES_DB_FILENAME,"r") as fobj:
+      try:
+        dependencies_by_dist = json.load(fobj)
+      except ValueError:
+        dependencies_by_dist = dict() # If it was invalid or empty, replace with empty.
+
+# <~> Helper function to ensure that the global dependency conflicts dictionary is defined,
+#       importing it now if not.
+def _s_ensure_dep_conflicts_global_defined():
+  global conflicts_by_dist
+  try: # If the global is not defined yet, load the contents of the json file.
+    conflicts_by_dist
+  except NameError:
+    conflicts_by_dist = None
+    # <~> Fill with JSON data from file.
+    with open(_S_DEPENDENCY_CONFLICTS_DB_FILENAME,"r") as fobj:
+      try:
+        conflicts_by_dist = json.load(fobj)
+      except ValueError:
+        conflicts_by_dist = dict() # If it was invalid or empty, replace with empty.
+
+# <~> Helper function to write the dependencies conflicts global to its file.
+def _s_write_dep_conflicts_global():
+  global conflicts_by_dist
+  with open(_S_DEPENDENCY_CONFLICTS_DB_FILENAME,"w") as fobj:
+    json.dump(conflicts_by_dist, fobj)
+

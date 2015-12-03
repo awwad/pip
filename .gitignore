@@ -16,3 +16,5 @@ _s_deps_from_pip.json
 
 *.whl
 *.gz
+
+pip_installed
