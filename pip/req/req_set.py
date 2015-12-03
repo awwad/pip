@@ -680,26 +680,27 @@ class RequirementSet(object):
                 # <~> -------------------------------
                 # <~> -------------------------------
                 #ipdb.set_trace() # <~>
-                dist_reqs = dist.requires(available_requested)
-                global dependencies_by_dist # rushing for now
-                # Ensure that the dependency dictionary is defined, importing it from its file if not.
-                _s_ensure_dependencies_global_defined()
+                if self.find_dep_conflicts:
+                  dist_reqs = dist.requires(available_requested)
+                  global dependencies_by_dist # rushing for now
+                  # Ensure that the dependency dictionary is defined, importing it from its file if not.
+                  _s_ensure_dependencies_global_defined()
 
-                distkey = _s_get_distkey(dist)
+                  distkey = _s_get_distkey(dist)
                 
-                ## Don't reproduce effort?
-                #if (distkey) not in dependencies_by_dist:
-                #  dependencies_by_dist[distkey] = []
-                # Overwrite each time.
-                dependencies_by_dist[distkey] = []
+                  ## Don't reproduce effort?
+                  #if (distkey) not in dependencies_by_dist:
+                  #  dependencies_by_dist[distkey] = []
+                  # Overwrite each time.
+                  dependencies_by_dist[distkey] = []
+                  
+                  
+                  print("    "+str(dist),"depends on",str(dist_reqs))
+                  for subreq in dist_reqs:
+                    dependencies_by_dist[distkey].append( (subreq.project_name, subreq.specs) )
 
-
-                print("    "+str(dist),"depends on",str(dist_reqs))
-                for subreq in dist_reqs:
-                  dependencies_by_dist[distkey].append( (subreq.project_name, subreq.specs) )
-
-                # <~> Write the dependency data from the global back to file.
-                _s_write_dependencies_global()
+                  # <~> Write the dependency data from the global back to file.
+                  _s_write_dependencies_global()
 
 
                 # <~> -------------------------------
