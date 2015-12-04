@@ -213,12 +213,13 @@ class InstallCommand(RequirementCommand):
             )
 
         if options.download_dir:
-            warnings.warn(
-                "pip install --download has been deprecated and will be "
-                "removed in the future. Pip now has a download command that "
-                "should be used instead.",
-                RemovedInPip10Warning,
-            )
+            # <~> Shutting this up to reduce spam for now.
+            #warnings.warn(
+            #    "pip install --download has been deprecated and will be "
+            #    "removed in the future. Pip now has a download command that "
+            #    "should be used instead.",
+            #    RemovedInPip10Warning,
+            #)
             options.ignore_installed = True
 
         if options.build_dir:

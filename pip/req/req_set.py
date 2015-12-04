@@ -681,6 +681,19 @@ class RequirementSet(object):
                 # <~> -------------------------------
                 #ipdb.set_trace() # <~>
                 if self.find_dep_conflicts:
+                  ## Todo: here, need to save information about the initial requirements,
+                  ##   since it's not apparently possible to retrieve dist info for them
+                  ##   later, when we need it to store conflict information.
+                  if req_to_install.comes_from is None:
+                    try:
+                      self._s_initial_install_requirement_key
+                    except AttributeError:
+                      pass
+                    else:
+                      ipdb.set_trace()
+                      assert False, "<~> We should never encounter a second initial install requirement. This code is written to handle one initial install requirement. Perhaps I've made a bad assumption about when comes_from is set?"
+                    self._s_initial_install_requirement_key = _s_get_distkey(dist)
+
                   dist_reqs = dist.requires(available_requested)
                   global dependencies_by_dist # rushing for now
                   # Ensure that the dependency dictionary is defined, importing it from its file if not.
@@ -695,7 +708,7 @@ class RequirementSet(object):
                   dependencies_by_dist[distkey] = []
                   
                   
-                  print("    "+str(dist),"depends on",str(dist_reqs))
+                  print("    " + str(dist), "depends on", str(dist_reqs))
                   for subreq in dist_reqs:
                     dependencies_by_dist[distkey].append( (subreq.project_name, subreq.specs) )
 
@@ -724,13 +737,13 @@ class RequirementSet(object):
                           else:
                             #ipdb.set_trace() # <~>
                             # Todo: Add logic here to distinguish possible conflict from practical, probable conflict. (See daily notes 2015.11.30, option 2b)
-                            exception_string = '<~> Possible conflict detected.\n    '
+                            exception_string = '<~> Possible conflict detected:\n    '
                             if old_install_req.comes_from is None:
                               exception_string += 'original instruction included requirement '
                             else:
                               exception_string += old_install_req.comes_from.name + ' had requirement '
                             exception_string += str(old_install_req.req)
-                            exception_string += '\n    ' + str(dist)+' has requirement '+str(subreq)
+                            exception_string += '\n    ' + str(dist) +' has requirement '+ str(subreq) + '\n'
 
                             #ipdb.set_trace()
                             self._s_report_conflict(True, exception_string)
@@ -838,23 +851,28 @@ class RequirementSet(object):
         with open(_S_DEPENDENCIES_CONFLICT_LOG_FILENAME,"a") as fobj_conflicts_log:
           fobj_conflicts_log.write(exception_string)
 
-      # Find out what the initial install requirements were, because we now know that those have a conflict.
-      # (Currently assuming one initial install requirement.)
-      #ipdb.set_trace()
-      all_known_reqs = self.requirements.values()
-      initial_reqs = [req for req in self.requirements.values() if req.comes_from is None]
+      ### Find out what the initial install requirements were, because we now know that those have a conflict.
+      ### (Currently assuming one initial install requirement.)
+      ###ipdb.set_trace()
+      ##all_known_reqs = self.requirements.values()
+      ##initial_reqs = [req for req in self.requirements.values() if req.comes_from is None]
 
-      if len(initial_reqs) != 1:
-        raise Exception("Detected conflict, but found multiple initial requirements. This does not match programmer's expectations. If you tried testing multiple packages for dependencies at the same time, try one at a time instead.")
+      ##if len(initial_reqs) != 1:
+      ##  raise Exception("Detected conflict, but found multiple initial requirements. This does not match programmer's expectations. If you tried testing multiple packages for dependencies at the same time, try one at a time instead.")
 
-      initial_req = initial_reqs[0]
+      ##initial_req = initial_reqs[0]
+
+      try:
+        self._s_initial_install_requirement_key
+      except AttributeError as exc:
+        assert False, "<~> Coding error."+str(exc)
 
       global conflicts_by_dist
       _s_ensure_dep_conflicts_global_defined()
 
-      # This line is breaking.
-      initial_req_distkey = _s_get_distkey(initial_req.get_dist())
-      conflicts_by_dist[initial_req_distkey] = conflict_exists
+      ### This line is breaking.
+      ##initial_req_distkey = _s_get_distkey(initial_req.get_dist())
+      conflicts_by_dist[self._s_initial_install_requirement_key] = conflict_exists
       _s_write_dep_conflicts_global()
       
   
