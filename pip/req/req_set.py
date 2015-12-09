@@ -375,7 +375,7 @@ class RequirementSet(object):
             raise hash_errors
 
         if self.find_dep_conflicts: # <~>
-          print("    <~> Success - found no dependency conflicts.") # <~>
+          print("    <~> Success! - found no dependency conflicts.") # <~>
           self._s_report_conflict(False, "") # <~>
 
 
@@ -681,6 +681,9 @@ class RequirementSet(object):
                 # <~> -------------------------------
                 #ipdb.set_trace() # <~>
                 if self.find_dep_conflicts:
+                  import time as stdlib_time
+                  print("  Code sanity check: File "+__file__+", modified date is: "+stdlib_time.ctime(os.path.getmtime(__file__)))
+                  #ipdb.set_trace()
                   ## Todo: here, need to save information about the initial requirements,
                   ##   since it's not apparently possible to retrieve dist info for them
                   ##   later, when we need it to store conflict information.

@@ -9,6 +9,7 @@ MANIFEST
 *~
 .coverage
 coverage.xml
+temp/
 
 venv3
 
