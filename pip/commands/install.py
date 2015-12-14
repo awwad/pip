@@ -62,12 +62,26 @@ class InstallCommand(RequirementCommand):
         cmd_opts.add_option(cmdoptions.build_dir())
 
         # <~> Adding an option to check for dependency conflicts instead of installing.
+        #     Conflict model 1.
         cmd_opts.add_option(
             '--find-dep-conflicts',
             dest='find_dep_conflicts',
             action='store_true',
             help='<~> Instead of installing, simply check for dependency conflicts '
-                 'and raise an error if a conflict is detected.')
+                 'and raise an error if a conflict is detected. Employ model 1, '
+                 'defining a conflict as a scenario in which different constraints '
+                 'for the same package exist, those constraints not being identical.')
+        # <~> Adding an option to check for dependency conflicts instead of installing.
+        #     Conflict model 2.
+        cmd_opts.add_option(
+            '--find-dep-conflicts2',
+            dest='find_dep_conflicts2',
+            action='store_true',
+            help='<~> Instead of installing, simply check for dependency conflicts '
+                 'and raise an error if a conflict is detected. Employ model 2, '
+                 'defining a conflict as a scenario in which different constraints '
+                 'would lead to the installation of different packages based on pip '
+                 'dist selection policies.')
         # <~> end
 
         cmd_opts.add_option(
@@ -291,6 +305,7 @@ class InstallCommand(RequirementCommand):
                     wheel_cache=wheel_cache,
                     require_hashes=options.require_hashes,
                     find_dep_conflicts=options.find_dep_conflicts, # <~>
+                    find_dep_conflicts2=options.find_dep_conflicts2, # <~>
                 )
 
                 self.populate_requirement_set(

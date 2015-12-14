@@ -152,7 +152,7 @@ class RequirementSet(object):
                  use_user_site=False, session=None, pycompile=True,
                  isolated=False, wheel_download_dir=None,
                  wheel_cache=None, require_hashes=False,
-                 find_dep_conflicts=False): # <~>
+                 find_dep_conflicts=False, find_dep_conflicts2=False): # <~>
         """Create a RequirementSet.
 
         :param wheel_download_dir: Where still-packed .whl files should be
@@ -202,6 +202,7 @@ class RequirementSet(object):
         # Maps from install_req -> dependencies_of_install_req
         self._dependencies = defaultdict(list)
         self.find_dep_conflicts = find_dep_conflicts # <~>
+        self.find_dep_conflicts2 = find_dep_conflicts2 # <~>
 
     def __str__(self):
         reqs = [req for req in self.requirements.values()
@@ -374,7 +375,7 @@ class RequirementSet(object):
         if hash_errors:
             raise hash_errors
 
-        if self.find_dep_conflicts: # <~>
+        if self.find_dep_conflicts or self.find_dep_conflicts2: # <~>
           print("    <~> Success! - found no dependency conflicts.") # <~>
           self._s_report_conflict(False, "") # <~>
 
@@ -680,7 +681,7 @@ class RequirementSet(object):
                 # <~> -------------------------------
                 # <~> -------------------------------
                 #ipdb.set_trace() # <~>
-                if self.find_dep_conflicts:
+                if self.find_dep_conflicts or find_dep_conflicts2:
                   import time as stdlib_time
                   print("  Code sanity check: File "+__file__+", modified date is: "+stdlib_time.ctime(os.path.getmtime(__file__)))
                   #ipdb.set_trace()
@@ -731,6 +732,7 @@ class RequirementSet(object):
                     # Does this subreq's package name exist in the existing requirements for this requirement set?
                     # if subreq.key in [v.req.key for v in self.requirements.values()]:
                     #   print("    <~> Potential conflict detected: pre-existing requirement.")
+                    # CONFLICT MODEL 1 CODE FOLLOWS:
                     if self.find_dep_conflicts:
                       for old_install_req in self.requirements.values():
                         if old_install_req.req.project_name == subreq.project_name:
@@ -751,6 +753,13 @@ class RequirementSet(object):
                             self._s_report_conflict(True, exception_string)
                             
                             raise DependencyConflictError(exception_string)
+                    # END CONFLICT MODEL 1 CODE
+                    # CONFLICT MODEL 2 CODE FOLLOWS:
+                    elif self.find_dep_conflicts2:
+                      ipdb.set_trace()
+                      print("Writing find-dep-conflicts2 code.")
+                      pass
+                    # END CONFLICT MODEL 2 CODE
                     # <~> -------------------------------
                     # <~> end - of conflict detection section
                     # <~> -------------------------------

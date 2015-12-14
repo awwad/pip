@@ -437,6 +437,9 @@ class PackageFinder(object):
         Returns a Link if found,
         Raises DistributionNotFound or BestVersionAlreadyInstalled otherwise
         """
+        import ipdb # <~>
+        ipdb.set_trace() # <~>
+
         all_candidates = self._find_all_versions(req.name)
 
         # Filter out anything which doesn't match our specifier
