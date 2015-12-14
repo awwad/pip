@@ -713,7 +713,7 @@ class RequirementSet(object):
                   
                   print("    " + str(dist), "depends on", str(dist_reqs))
                   for subreq in dist_reqs:
-                    dependencies_by_dist[distkey].append( (subreq.project_name, subreq.specs) )
+                    dependencies_by_dist[distkey].append( (subreq.project_name.lower(), subreq.specs) ) # now using lowercase
 
                   # <~> Write the dependency data from the global back to file.
                   _s_write_dependencies_global()
@@ -854,17 +854,7 @@ class RequirementSet(object):
         with open(_S_DEPENDENCIES_CONFLICT_LOG_FILENAME,"a") as fobj_conflicts_log:
           fobj_conflicts_log.write(exception_string)
 
-      ### Find out what the initial install requirements were, because we now know that those have a conflict.
-      ### (Currently assuming one initial install requirement.)
-      ###ipdb.set_trace()
-      ##all_known_reqs = self.requirements.values()
-      ##initial_reqs = [req for req in self.requirements.values() if req.comes_from is None]
-
-      ##if len(initial_reqs) != 1:
-      ##  raise Exception("Detected conflict, but found multiple initial requirements. This does not match programmer's expectations. If you tried testing multiple packages for dependencies at the same time, try one at a time instead.")
-
-      ##initial_req = initial_reqs[0]
-
+      # <~> Fetch initial install requirement, stored earlier.
       try:
         self._s_initial_install_requirement_key
       except AttributeError as exc:
@@ -873,9 +863,10 @@ class RequirementSet(object):
       global conflicts_by_dist
       _s_ensure_dep_conflicts_global_defined()
 
-      ### This line is breaking.
+      ### Turns out we can't use get_dist(). Temp file is deleted? Not treated as a valid dist? Dist has ambiguous semantics, perhaps?
       ##initial_req_distkey = _s_get_distkey(initial_req.get_dist())
       conflicts_by_dist[self._s_initial_install_requirement_key] = conflict_exists
+      print("  Adding",self._s_initial_install_requirement_key,"to conflicts db.")
       _s_write_dep_conflicts_global()
       
   
@@ -886,8 +877,9 @@ class RequirementSet(object):
 
 # <~> Helper function to determine the key for a given distribution to be used in the
 #       dependency conflict db and the dependencies db.
+#     Updating to make lowercase.
 def _s_get_distkey(dist):
-  return dist.project_name + "(" + dist.version + ")"
+  return dist.project_name.lower() + "(" + dist.version + ")"
 
 # <~> Helper function to ensure that the global dependencies dictionary is defined,
 #       importing it now if not.
