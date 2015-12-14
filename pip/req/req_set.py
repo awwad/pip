@@ -27,6 +27,7 @@ import ipdb # <~>
 import json # <~>
 _S_DEPENDENCIES_DB_FILENAME = "/Users/s/w/git/pypi-depresolve/dependencies_db.json"
 _S_DEPENDENCY_CONFLICTS_DB_FILENAME = "/Users/s/w/git/pypi-depresolve/conflicts_db.json"
+_S_DEPENDENCY_CONFLICTS2_DB_FILENAME = "/Users/s/w/git/pypi-depresolve/conflicts_2_db.json"
 #_S_DEPENDENCIES_LOG_FILENAME = "/Users/s/w/git/pypi-depresolve/_s_deps_from_pip.json"
 _S_DEPENDENCIES_CONFLICT_LOG_FILENAME = "/Users/s/w/git/pypi-depresolve/conflicts_db.log"
 
@@ -681,7 +682,7 @@ class RequirementSet(object):
                 # <~> -------------------------------
                 # <~> -------------------------------
                 #ipdb.set_trace() # <~>
-                if self.find_dep_conflicts or find_dep_conflicts2:
+                if self.find_dep_conflicts or self.find_dep_conflicts2:
                   import time as stdlib_time
                   print("  Code sanity check: File "+__file__+", modified date is: "+stdlib_time.ctime(os.path.getmtime(__file__)))
                   #ipdb.set_trace()
@@ -758,6 +759,7 @@ class RequirementSet(object):
                     elif self.find_dep_conflicts2:
                       ipdb.set_trace()
                       print("Writing find-dep-conflicts2 code.")
+                      
                       pass
                     # END CONFLICT MODEL 2 CODE
                     # <~> -------------------------------
@@ -869,13 +871,13 @@ class RequirementSet(object):
         assert False, "<~> Coding error."+str(exc)
 
       global conflicts_by_dist
-      _s_ensure_dep_conflicts_global_defined()
+      _s_ensure_dep_conflicts_global_defined(self.find_dep_conflicts,self.find_dep_conflicts2)
 
       ### Turns out we can't use get_dist(). Temp file is deleted? Not treated as a valid dist? Dist has ambiguous semantics, perhaps?
       ##initial_req_distkey = _s_get_distkey(initial_req.get_dist())
       conflicts_by_dist[self._s_initial_install_requirement_key] = conflict_exists
       print("  Adding",self._s_initial_install_requirement_key,"to conflicts db.")
-      _s_write_dep_conflicts_global()
+      _s_write_dep_conflicts_global(self.find_dep_conflicts,self.find_dep_conflicts2)
       
   
       
@@ -927,22 +929,41 @@ def _s_ensure_dependencies_global_defined():
 
 # <~> Helper function to ensure that the global dependency conflicts dictionary is defined,
 #       importing it now if not.
-def _s_ensure_dep_conflicts_global_defined():
+def _s_ensure_dep_conflicts_global_defined(use_model_1, use_model_2):
+  # Ensure we're only using one conflict model.
+  assert( (use_model_1 or use_model_2) and not (use_model_1 and use_model_2) )
+
   global conflicts_by_dist
   try: # If the global is not defined yet, load the contents of the json file.
     conflicts_by_dist
   except NameError:
     conflicts_by_dist = None
     # <~> Fill with JSON data from file.
-    with open(_S_DEPENDENCY_CONFLICTS_DB_FILENAME,"r") as fobj:
+    conflicts_db_filename = None
+    if use_model_1:
+      conflicts_db_filename = _S_DEPENDENCY_CONFLICTS_DB_FILENAME
+    else:
+      assert(use_model_2)
+      conflicts_db_filename = _S_DEPENDENCY_CONFLICTS2_DB_FILENAME
+    with open(conflicts_db_filename,"r") as fobj:
       try:
         conflicts_by_dist = json.load(fobj)
       except ValueError:
         conflicts_by_dist = dict() # If it was invalid or empty, replace with empty.
 
 # <~> Helper function to write the dependencies conflicts global to its file.
-def _s_write_dep_conflicts_global():
+def _s_write_dep_conflicts_global(use_model_1, use_model_2):
+  # Ensure we're only using one conflict model.
+  assert( (use_model_1 or use_model_2) and not (use_model_1 and use_model_2) )
+
   global conflicts_by_dist
-  with open(_S_DEPENDENCY_CONFLICTS_DB_FILENAME,"w") as fobj:
+
+  if use_model_1:
+    conflicts_db_filename = _S_DEPENDENCY_CONFLICTS_DB_FILENAME
+  else:
+    assert(use_model_2)
+    conflicts_db_filename = _S_DEPENDENCY_CONFLICTS2_DB_FILENAME
+  
+  with open(conflicts_db_filename,"w") as fobj:
     json.dump(conflicts_by_dist, fobj)
 
