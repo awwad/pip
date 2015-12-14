@@ -704,20 +704,19 @@ class RequirementSet(object):
 
                   distkey = _s_get_distkey(dist)
                 
-                  ## Don't reproduce effort?
-                  #if (distkey) not in dependencies_by_dist:
-                  #  dependencies_by_dist[distkey] = []
-                  # Overwrite each time.
-                  dependencies_by_dist[distkey] = []
+                  if distkey in dependencies_by_dist: # <~> 12/14/2015
+                    # Skip verifying them for now.
+                    print "  Already have str(dist)'s dependencies. Not writing to deps file."
+                  else:
+                    dependencies_by_dist[distkey] = []
                   
-                  
-                  print("    " + str(dist), "depends on", str(dist_reqs))
-                  for subreq in dist_reqs:
-                    dependencies_by_dist[distkey].append( (subreq.project_name.lower(), subreq.specs) ) # now using lowercase
+                    print("    " + str(dist), "depends on", str(dist_reqs))
+                    for subreq in dist_reqs:
+                      dependencies_by_dist[distkey].append( (subreq.project_name.lower(), subreq.specs) ) # now using lowercase
 
-                  # <~> Write the dependency data from the global back to file.
-                  _s_write_dependencies_global()
-
+                    # <~> Write the dependency data from the global back to file.
+                    _s_write_dependencies_global()
+                  # <~> end 12/14/2015 additions and indentation
 
                 # <~> -------------------------------
                 # <~> end - of package dependency recording section
