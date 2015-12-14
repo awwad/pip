@@ -25,10 +25,10 @@ from pip.vcs import vcs
 
 import ipdb # <~>
 import json # <~>
-_S_DEPENDENCIES_DB_FILENAME = "/Users/s/w/git/pypi-depresolve/_s_deps_from_pip.json"
-_S_DEPENDENCY_CONFLICTS_DB_FILENAME = "/Users/s/w/git/pypi-depresolve/_s_deps_conflicts_from_pip.json"
+_S_DEPENDENCIES_DB_FILENAME = "/Users/s/w/git/pypi-depresolve/dependencies_db.json"
+_S_DEPENDENCY_CONFLICTS_DB_FILENAME = "/Users/s/w/git/pypi-depresolve/conflicts_db.json"
 #_S_DEPENDENCIES_LOG_FILENAME = "/Users/s/w/git/pypi-depresolve/_s_deps_from_pip.json"
-_S_DEPENDENCIES_CONFLICT_LOG_FILENAME = "/Users/s/w/git/pypi-depresolve/_s_deps_conflicts_from_pip.log"
+_S_DEPENDENCIES_CONFLICT_LOG_FILENAME = "/Users/s/w/git/pypi-depresolve/conflicts_db.log"
 
 logger = logging.getLogger(__name__)
 
@@ -707,7 +707,7 @@ class RequirementSet(object):
                 
                   if distkey in dependencies_by_dist: # <~> 12/14/2015
                     # Skip verifying them for now.
-                    print "  Already have str(dist)'s dependencies. Not writing to deps file."
+                    print("  Already have str(dist)'s dependencies. Not writing to deps file.")
                   else:
                     dependencies_by_dist[distkey] = []
                   
