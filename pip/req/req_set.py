@@ -761,13 +761,12 @@ class RequirementSet(object):
                             # If so, we continue along happily.
                             # If not, we have encountered a conflict of type 2.
                             assert(self.find_dep_conflicts2) # Shouldn't be able to get to this spot in the code unless find_dep_conflicts2 is True.
-                            print("Coding conflict model 2 here.")
                             new_link = finder.find_requirement(InstallRequirement(subreq, None), False)
                             old_link = finder.find_requirement(old_install_req, False)
                             if new_link == old_link:
                               # Conflict Type 2 and A-OK.
                               print("    <~> Debug Info: Multiple packages to be installed have the same dependency, but the first-choice package selected by pip for both packages resolves to the same one. old_link="+str(old_link),"and new_link="+str(new_link))
-                            else: # Conflict Type 1 and NOT OK.
+                            else: # Conflict Type 2 and NOT OK.
                               #ipdb.set_trace()
                               exception_string = '<~> Possible conflict detected:\n    '
                               if old_install_req.comes_from is None:
@@ -776,7 +775,7 @@ class RequirementSet(object):
                                 exception_string += old_install_req.comes_from.name + ' had requirement '
                               exception_string += str(old_install_req.req)
                               exception_string += '\n    ' + str(dist) +' has requirement '+ str(subreq) + '\n'
-                              exception_string += 'Resolution:\n      Old req link: '+str(old_link)+'\n      New req link: '+str(new_link)+'\n'
+                              exception_string += 'Link Resolution:\n      Old req link: '+str(old_link)+'\n      New req link: '+str(new_link)+'\n'
                               self._s_report_conflict(True, exception_string)
                               raise DependencyConflictError(exception_string)
                           # END OF CONFLICT MODEL 2 CODE
