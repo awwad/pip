@@ -684,7 +684,7 @@ class RequirementSet(object):
                 #ipdb.set_trace() # <~>
                 if self.find_dep_conflicts or self.find_dep_conflicts2:
                   import time as stdlib_time
-                  print("  Code sanity check: File "+__file__+", modified date is: "+stdlib_time.ctime(os.path.getmtime(__file__)))
+                  #print("  Code sanity check: File "+__file__+", modified date is: "+stdlib_time.ctime(os.path.getmtime(__file__)))
                   #ipdb.set_trace()
                   ## Todo: here, need to save information about the initial requirements,
                   ##   since it's not apparently possible to retrieve dist info for them
@@ -708,7 +708,8 @@ class RequirementSet(object):
                 
                   if distkey in dependencies_by_dist: # <~> 12/14/2015
                     # Skip verifying them for now.
-                    print("  Already have str(dist)'s dependencies. Not writing to deps file.")
+                    #print("  Already have str(dist)'s dependencies. Not writing to deps file.")
+                    pass
                   else:
                     dependencies_by_dist[distkey] = []
                   
@@ -733,15 +734,15 @@ class RequirementSet(object):
                     # Does this subreq's package name exist in the existing requirements for this requirement set?
                     # if subreq.key in [v.req.key for v in self.requirements.values()]:
                     #   print("    <~> Potential conflict detected: pre-existing requirement.")
-                    # CONFLICT MODEL 1 CODE FOLLOWS:
-                    if self.find_dep_conflicts:
+                    if self.find_dep_conflicts or self.find_dep_conflicts2:
                       for old_install_req in self.requirements.values():
+
                         if old_install_req.req.project_name == subreq.project_name:
-                          if old_install_req.req.specs == subreq.specs:
+                          # CONFLICT MODEL 1 CODE FOLLOWS:
+                          if self.find_dep_conflicts and old_install_req.req.specs == subreq.specs: # Conflict Type 1 and A-OK.
                             print("    <~> Debug Info: Multiple packages to be installed have the same dependency, but the requirement specification is the same. All is well.")
-                          else:
-                            #ipdb.set_trace() # <~>
-                            # Todo: Add logic here to distinguish possible conflict from practical, probable conflict. (See daily notes 2015.11.30, option 2b)
+
+                          elif self.find_dep_conflicts: # Conflict Type 1 and NOT OK.
                             exception_string = '<~> Possible conflict detected:\n    '
                             if old_install_req.comes_from is None:
                               exception_string += 'original instruction included requirement '
@@ -749,19 +750,38 @@ class RequirementSet(object):
                               exception_string += old_install_req.comes_from.name + ' had requirement '
                             exception_string += str(old_install_req.req)
                             exception_string += '\n    ' + str(dist) +' has requirement '+ str(subreq) + '\n'
-
-                            #ipdb.set_trace()
                             self._s_report_conflict(True, exception_string)
-                            
                             raise DependencyConflictError(exception_string)
-                    # END CONFLICT MODEL 1 CODE
-                    # CONFLICT MODEL 2 CODE FOLLOWS:
-                    elif self.find_dep_conflicts2:
-                      ipdb.set_trace()
-                      print("Writing find-dep-conflicts2 code.")
-                      
-                      pass
-                    # END CONFLICT MODEL 2 CODE
+                          # END OF CONFLICT MODEL 1 CODE
+                          # Else we're using conflict model 2
+                          # CONFLICT MODEL 2 CODE FOLLOWS
+                          else:
+                            # Here is where we need to test to see if pip.index.PackageFinder.find_requirement returns
+                            #   the same link for the new subreq and for the old_install_req it matches.
+                            # If so, we continue along happily.
+                            # If not, we have encountered a conflict of type 2.
+                            assert(self.find_dep_conflicts2) # Shouldn't be able to get to this spot in the code unless find_dep_conflicts2 is True.
+                            print("Coding conflict model 2 here.")
+                            new_link = finder.find_requirement(InstallRequirement(subreq, None), False)
+                            old_link = finder.find_requirement(old_install_req, False)
+                            if new_link == old_link:
+                              # Conflict Type 2 and A-OK.
+                              print("    <~> Debug Info: Multiple packages to be installed have the same dependency, but the first-choice package selected by pip for both packages resolves to the same one. old_link="+str(old_link),"and new_link="+str(new_link))
+                            else: # Conflict Type 1 and NOT OK.
+                              #ipdb.set_trace()
+                              exception_string = '<~> Possible conflict detected:\n    '
+                              if old_install_req.comes_from is None:
+                                exception_string += 'original instruction included requirement '
+                              else:
+                                exception_string += old_install_req.comes_from.name + ' had requirement '
+                              exception_string += str(old_install_req.req)
+                              exception_string += '\n    ' + str(dist) +' has requirement '+ str(subreq) + '\n'
+                              exception_string += 'Resolution:\n      Old req link: '+str(old_link)+'\n      New req link: '+str(new_link)+'\n'
+                              self._s_report_conflict(True, exception_string)
+                              raise DependencyConflictError(exception_string)
+                          # END OF CONFLICT MODEL 2 CODE
+                        # end of if there is a package name collision in dependencies  
+                      # end of loop over each pre-existing install requirement
                     # <~> -------------------------------
                     # <~> end - of conflict detection section
                     # <~> -------------------------------
