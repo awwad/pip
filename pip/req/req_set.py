@@ -28,6 +28,7 @@ import json # <~>
 _S_DEPENDENCIES_DB_FILENAME = "/Users/s/w/git/pypi-depresolve/dependencies_db.json"
 _S_DEPENDENCY_CONFLICTS_DB_FILENAME = "/Users/s/w/git/pypi-depresolve/conflicts_db.json"
 _S_DEPENDENCY_CONFLICTS2_DB_FILENAME = "/Users/s/w/git/pypi-depresolve/conflicts_2_db.json"
+_S_DEPENDENCY_CONFLICTS3_DB_FILENAME = "/Users/s/w/git/pypi-depresolve/conflicts_3_db.json"
 #_S_DEPENDENCIES_LOG_FILENAME = "/Users/s/w/git/pypi-depresolve/_s_deps_from_pip.json"
 _S_DEPENDENCIES_CONFLICT_LOG_FILENAME = "/Users/s/w/git/pypi-depresolve/conflicts_db.log"
 
@@ -153,7 +154,7 @@ class RequirementSet(object):
                  use_user_site=False, session=None, pycompile=True,
                  isolated=False, wheel_download_dir=None,
                  wheel_cache=None, require_hashes=False,
-                 find_dep_conflicts=False, find_dep_conflicts2=False): # <~>
+                 find_dep_conflicts=0): # <~>
         """Create a RequirementSet.
 
         :param wheel_download_dir: Where still-packed .whl files should be
@@ -203,7 +204,7 @@ class RequirementSet(object):
         # Maps from install_req -> dependencies_of_install_req
         self._dependencies = defaultdict(list)
         self.find_dep_conflicts = find_dep_conflicts # <~>
-        self.find_dep_conflicts2 = find_dep_conflicts2 # <~>
+
 
     def __str__(self):
         reqs = [req for req in self.requirements.values()
@@ -376,10 +377,16 @@ class RequirementSet(object):
         if hash_errors:
             raise hash_errors
 
-        if self.find_dep_conflicts or self.find_dep_conflicts2: # <~>
-          print("    <~> Success! - found no dependency conflicts.") # <~>
-          self._s_report_conflict(False, "") # <~>
-
+        # <~> Conflict detection - no type 1 or type 2 conflicts detected.
+        if self.find_dep_conflicts in [1, 2]:
+          print("    <~> Success! - found no dependency conflicts.")
+          self._s_report_conflict(False, "")
+        elif self.find_dep_conflicts == 3:
+          ipdb.set_trace()
+          print("Currently writing conflict model 3 detection code.")
+          # Here, we process the requirements.
+          assert(False)
+        # <~> end end-of-prep conflict detection section
 
     def _check_skip_installed(self, req_to_install, finder):
         """Check if req_to_install should be skipped.
@@ -682,7 +689,7 @@ class RequirementSet(object):
                 # <~> -------------------------------
                 # <~> -------------------------------
                 #ipdb.set_trace() # <~>
-                if self.find_dep_conflicts or self.find_dep_conflicts2:
+                if self.find_dep_conflicts in [1, 2, 3]:
                   import time as stdlib_time
                   #print("  Code sanity check: File "+__file__+", modified date is: "+stdlib_time.ctime(os.path.getmtime(__file__)))
                   #ipdb.set_trace()
@@ -734,15 +741,15 @@ class RequirementSet(object):
                     # Does this subreq's package name exist in the existing requirements for this requirement set?
                     # if subreq.key in [v.req.key for v in self.requirements.values()]:
                     #   print("    <~> Potential conflict detected: pre-existing requirement.")
-                    if self.find_dep_conflicts or self.find_dep_conflicts2:
+                    if self.find_dep_conflicts in [1, 2]:
                       for old_install_req in self.requirements.values():
 
                         if old_install_req.req.project_name == subreq.project_name:
                           # CONFLICT MODEL 1 CODE FOLLOWS:
-                          if self.find_dep_conflicts and old_install_req.req.specs == subreq.specs: # Conflict Type 1 and A-OK.
+                          if self.find_dep_conflicts == 1 and old_install_req.req.specs == subreq.specs: # Conflict Type 1 and A-OK.
                             print("    <~> Debug Info: Multiple packages to be installed have the same dependency, but the requirement specification is the same. All is well.")
 
-                          elif self.find_dep_conflicts: # Conflict Type 1 and NOT OK.
+                          elif self.find_dep_conflicts == 1: # Conflict Type 1 and NOT OK.
                             exception_string = '<~> Possible conflict detected:\n    '
                             if old_install_req.comes_from is None:
                               exception_string += 'original instruction included requirement '
@@ -760,7 +767,7 @@ class RequirementSet(object):
                             #   the same link for the new subreq and for the old_install_req it matches.
                             # If so, we continue along happily.
                             # If not, we have encountered a conflict of type 2.
-                            assert(self.find_dep_conflicts2) # Shouldn't be able to get to this spot in the code unless find_dep_conflicts2 is True.
+                            assert(self.find_dep_conflicts == 2) # Shouldn't be able to get to this spot in the code unless find_dep_conflicts is 2.
                             new_link = finder.find_requirement(InstallRequirement(subreq, None), False)
                             old_link = finder.find_requirement(old_install_req, False)
                             if new_link == old_link:
@@ -890,13 +897,13 @@ class RequirementSet(object):
         assert False, "<~> Coding error."+str(exc)
 
       global conflicts_by_dist
-      _s_ensure_dep_conflicts_global_defined(self.find_dep_conflicts,self.find_dep_conflicts2)
+      _s_ensure_dep_conflicts_global_defined(self.find_dep_conflicts)
 
       ### Turns out we can't use get_dist(). Temp file is deleted? Not treated as a valid dist? Dist has ambiguous semantics, perhaps?
       ##initial_req_distkey = _s_get_distkey(initial_req.get_dist())
       conflicts_by_dist[self._s_initial_install_requirement_key] = conflict_exists
       print("  Adding",self._s_initial_install_requirement_key,"to conflicts db.")
-      _s_write_dep_conflicts_global(self.find_dep_conflicts,self.find_dep_conflicts2)
+      _s_write_dep_conflicts_global(self.find_dep_conflicts)
       
   
       
@@ -948,9 +955,10 @@ def _s_ensure_dependencies_global_defined():
 
 # <~> Helper function to ensure that the global dependency conflicts dictionary is defined,
 #       importing it now if not.
-def _s_ensure_dep_conflicts_global_defined(use_model_1, use_model_2):
-  # Ensure we're only using one conflict model.
-  assert( (use_model_1 or use_model_2) and not (use_model_1 and use_model_2) )
+def _s_ensure_dep_conflicts_global_defined(conflict_model):
+  # Ensure we're only using one conflict model. These are bools.
+  #assert( use_model_1 + use_model_2 + use_model_3 == 1 )
+  assert(conflict_model in [1,2,3])
 
   global conflicts_by_dist
   try: # If the global is not defined yet, load the contents of the json file.
@@ -959,11 +967,13 @@ def _s_ensure_dep_conflicts_global_defined(use_model_1, use_model_2):
     conflicts_by_dist = None
     # <~> Fill with JSON data from file.
     conflicts_db_filename = None
-    if use_model_1:
+    if conflict_model == 1:
       conflicts_db_filename = _S_DEPENDENCY_CONFLICTS_DB_FILENAME
-    else:
-      assert(use_model_2)
+    elif conflict_model == 2:
       conflicts_db_filename = _S_DEPENDENCY_CONFLICTS2_DB_FILENAME
+    else:
+      assert(conflict_model == 3)
+      conflicts_db_filename = _S_DEPENDENCY_CONFLICTS3_DB_FILENAME
     with open(conflicts_db_filename,"r") as fobj:
       try:
         conflicts_by_dist = json.load(fobj)
@@ -971,17 +981,21 @@ def _s_ensure_dep_conflicts_global_defined(use_model_1, use_model_2):
         conflicts_by_dist = dict() # If it was invalid or empty, replace with empty.
 
 # <~> Helper function to write the dependencies conflicts global to its file.
-def _s_write_dep_conflicts_global(use_model_1, use_model_2):
-  # Ensure we're only using one conflict model.
-  assert( (use_model_1 or use_model_2) and not (use_model_1 and use_model_2) )
+def _s_write_dep_conflicts_global(conflict_model):
+  ## Ensure we're only using one conflict model. These are bools.
+  #assert( use_model_1 + use_model_2 + use_model_3 == 1 )
+  assert(conflict_model in [1,2,3])
 
   global conflicts_by_dist
 
-  if use_model_1:
+  if conflict_model == 1:
     conflicts_db_filename = _S_DEPENDENCY_CONFLICTS_DB_FILENAME
-  else:
-    assert(use_model_2)
+  elif conflict_model == 2:
     conflicts_db_filename = _S_DEPENDENCY_CONFLICTS2_DB_FILENAME
+  else:
+    assert(conflict_model == 3)
+    conflicts_db_filename = _S_DEPENDENCY_CONFLICTS3_DB_FILENAME
+    
   
   with open(conflicts_db_filename,"w") as fobj:
     json.dump(conflicts_by_dist, fobj)
