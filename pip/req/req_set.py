@@ -384,7 +384,18 @@ class RequirementSet(object):
         elif self.find_dep_conflicts == 3:
           ipdb.set_trace()
           print("Currently writing conflict model 3 detection code.")
+
           # Here, we process the requirements.
+          # self.requirements.keys() yields project names
+          # self.requirements.values() yields InstalRequirement values
+          # From there, we have two options:
+          #      #1 - using project and version, look things up in my deps db
+          #   or #2 - figure out how to pluck deps out of the InstallRequirements (would be easy with a dist, but don't have those here in the code).
+          # WRT #1, In the worst case, I can use self.requirements.values()[n].link to get the link of the nth requirement.
+          #         Let's try that first.
+          
+
+
           assert(False)
         # <~> end end-of-prep conflict detection section
 
@@ -747,16 +758,16 @@ class RequirementSet(object):
                         if old_install_req.req.project_name == subreq.project_name:
                           # CONFLICT MODEL 1 CODE FOLLOWS:
                           if self.find_dep_conflicts == 1 and old_install_req.req.specs == subreq.specs: # Conflict Type 1 and A-OK.
-                            print("    <~> Debug Info: Multiple packages to be installed have the same dependency, but the requirement specification is the same. All is well.")
-
+                            #print("    <~> Debug Info: Multiple packages to be installed have the same dependency, but the requirement specification is the same. All is well.")
+                            pass
                           elif self.find_dep_conflicts == 1: # Conflict Type 1 and NOT OK.
-                            exception_string = '<~> Possible conflict detected:\n    '
+                            exception_string = '   Model ' + str(self.find_dep_conflicts) + ' conflict detected:\n    '
                             if old_install_req.comes_from is None:
                               exception_string += 'original instruction included requirement '
                             else:
-                              exception_string += old_install_req.comes_from.name + ' had requirement '
+                              exception_string += 'First, found that ' + old_install_req.comes_from.name + ' had requirement '
                             exception_string += str(old_install_req.req)
-                            exception_string += '\n    ' + str(dist) +' has requirement '+ str(subreq) + '\n'
+                            exception_string += '\n    Then, found that ' + str(dist) +' has requirement '+ str(subreq) + '\n'
                             self._s_report_conflict(True, exception_string)
                             raise DependencyConflictError(exception_string)
                           # END OF CONFLICT MODEL 1 CODE
@@ -772,16 +783,17 @@ class RequirementSet(object):
                             old_link = finder.find_requirement(old_install_req, False)
                             if new_link == old_link:
                               # Conflict Type 2 and A-OK.
-                              print("    <~> Debug Info: Multiple packages to be installed have the same dependency, but the first-choice package selected by pip for both packages resolves to the same one. old_link="+str(old_link),"and new_link="+str(new_link))
+                              #print("    <~> Debug Info: Multiple packages to be installed have the same dependency, but the first-choice package selected by pip for both packages resolves to the same one. old_link="+str(old_link),"and new_link="+str(new_link))
+                              pass
                             else: # Conflict Type 2 and NOT OK.
                               #ipdb.set_trace()
-                              exception_string = '<~> Possible conflict detected:\n    '
+                              exception_string = '   Model ' + str(self.find_dep_conflicts) + ' conflict detected:\n    '
                               if old_install_req.comes_from is None:
                                 exception_string += 'original instruction included requirement '
                               else:
-                                exception_string += old_install_req.comes_from.name + ' had requirement '
+                                exception_string += 'First, found that ' + old_install_req.comes_from.name + ' had requirement '
                               exception_string += str(old_install_req.req)
-                              exception_string += '\n    ' + str(dist) +' has requirement '+ str(subreq) + '\n'
+                              exception_string += '\n    Then, found that ' + str(dist) +' has requirement '+ str(subreq) + '\n'
                               exception_string += 'Link Resolution:\n      Old req link: '+str(old_link)+'\n      New req link: '+str(new_link)+'\n'
                               self._s_report_conflict(True, exception_string)
                               raise DependencyConflictError(exception_string)
@@ -902,7 +914,7 @@ class RequirementSet(object):
       ### Turns out we can't use get_dist(). Temp file is deleted? Not treated as a valid dist? Dist has ambiguous semantics, perhaps?
       ##initial_req_distkey = _s_get_distkey(initial_req.get_dist())
       conflicts_by_dist[self._s_initial_install_requirement_key] = conflict_exists
-      print("  Adding",self._s_initial_install_requirement_key,"to conflicts db.")
+      print("  Adding",self._s_initial_install_requirement_key,"to Model " + str(self.find_dep_conflicts) + " conflicts db.")
       _s_write_dep_conflicts_global(self.find_dep_conflicts)
       
   
