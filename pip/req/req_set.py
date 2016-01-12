@@ -23,7 +23,7 @@ from pip.utils.hashes import MissingHashes
 from pip.utils.logging import indent_log
 from pip.vcs import vcs
 
-import ipdb # <~>
+#import pip # <~>
 import json # <~>
 _S_DEPENDENCIES_DB_FILENAME = "/Users/s/w/git/pypi-depresolve/dependencies_db.json"
 _S_DEPENDENCY_CONFLICTS_DB_FILENAME = "/Users/s/w/git/pypi-depresolve/conflicts_db.json"
@@ -382,7 +382,7 @@ class RequirementSet(object):
           print("    <~> Success! - found no dependency conflicts.")
           self._s_report_conflict(False, "")
         elif self.find_dep_conflicts == 3:
-          ipdb.set_trace()
+          #ipdb.set_trace()
           print("Currently writing conflict model 3 detection code.")
 
           # Here, we process the requirements.
@@ -713,7 +713,7 @@ class RequirementSet(object):
                     except AttributeError:
                       pass
                     else:
-                      ipdb.set_trace()
+                      #ipdb.set_trace()
                       assert False, "<~> We should never encounter a second initial install requirement. This code is written to handle one initial install requirement. Perhaps I've made a bad assumption about when comes_from is set?"
                     self._s_initial_install_requirement_key = _s_get_distkey(dist)
 
