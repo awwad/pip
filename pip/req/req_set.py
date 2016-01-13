@@ -1009,9 +1009,9 @@ class RequirementSet(object):
 #     Splitting into two calls to allow for use on either a dist object or just name and version strings.
 def _s_get_distkey(dist):
   #return dist.project_name.lower() + "(" + dist.version + ")"
-  return _s_distkey_format(dist.project_name.lower(), dist.version)
+  return _s_distkey_format(dist.project_name, dist.version)
 def _s_distkey_format(name, version):
-  return name + "(" + version + ")"
+  return name.lower() + "(" + version + ")"
 
 
 # <~> Helper function to write the dependencies global to its file.
