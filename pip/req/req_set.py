@@ -23,7 +23,7 @@ from pip.utils.hashes import MissingHashes
 from pip.utils.logging import indent_log
 from pip.vcs import vcs
 
-#import pip # <~>
+import pip._vendor.packaging.specifiers # <~> for SpecifierSet, for conflict model 3 code
 import json # <~>
 # <~> Except for the log filename, will now be taking these from pip install arguments instead.
 #_S_DEPENDENCIES_DB_FILENAME = "/Users/s/w/git/pypi-depresolve/dependencies_db.json"
@@ -386,6 +386,7 @@ class RequirementSet(object):
           print("    <~> Success! - found no dependency conflicts.")
           self._s_report_conflict(False, "")
         elif self.find_dep_conflicts == 3:
+          #import ipdb
           #ipdb.set_trace()
           print("Currently writing conflict model 3 detection code.")
 
@@ -396,12 +397,78 @@ class RequirementSet(object):
           #      #1 - using project and version, look things up in my deps db
           #   or #2 - figure out how to pluck deps out of the InstallRequirements (would be easy with a dist, but don't have those here in the code).
           # WRT #1, In the worst case, I can use self.requirements.values()[n].link to get the link of the nth requirement.
-          #         Let's try that first.
+          #
+          # I'll start by trying #1
+          # Yeah, version info not being available afterwards for a given requirement is a nuisance.
+          # Let's just change that by adding it to the InstallRequirement class once and for all. /:
+
+          # Done.... Let's now see if it's available.
+
+          # Populate a list of the set of install candidates finally chosen by pip to install together in order to
+          #   satisfy the initial install requirement passed to pip.
+          candidates_chosen_by_pip = []
+          versions_chosen_by_pip = dict() # will also populate this for now. redundant, but convenient at the moment.
+          for req in self.requirements.values():
+            # Get the key used to indicate that sdist in our dependencies db.
+            req_key = _s_distkey_format(req.name, req.version)
+            candidates_chosen_by_pip.append(req_key)
+            versions_chosen_by_pip[req.name] = req.version
           
+          # Walk through that list and check the dependencies of each item in our dependencies db.
+          # If pip has avoided a dependency conflict, all of these dependencies should be satisfied by
+          #   something in the candidates_chosen_by_pip list.
+          # For every pip-selected install requirement:
+          # EDIT - no longer this, but still have to test on one: Note --- I'm going to start by writing this to assume there's only one specification, I think.
+          # Note --- starting by looking only at the first level of dependencies.
+          # TODO: next have to inspect full dependency tree.
+          for req_key in candidates_chosen_by_pip:
+            # For every registered dependency of this sdist in the dependencies db:
+            for dep in dependencies_by_dist[req_key]:
+              # Check to see if that dependency is met by something in the set of install requirements pip chose.
+              package_name = dep[0]
+              list_of_spec_tuples = dep[1]
+              specstring = ""
+              # dep is a 2-tuple, first entry package name, second entry list of tuples (each constituting a specifier)
+              #  e.g.  ('motor', [ [ '>', '0.4.0' ], [ '<', '0.6.6'] ])
+              #    indicating: depends on package motor, version > 0.4.0, version < 0.6.6
+              # Start by characterizing the dependency as a package name and SpecifierSet.
+              for specification in list_of_spec_tuples: # for each specification (example specification: [ '>', '0.4.0' ]) in the list of specs:
+                # append the operator and operand (version string) back together, with distinct specifiers separated by commas.
+                specstring += specification[0] + specification[1] + ","
 
+              # Trim trailing comma after loop.
+              if specstring.endswith(','):
+                specstring = specstring[:-1]
 
-          assert(False)
-        # <~> end end-of-prep conflict detection section
+              specset = pip._vendor.packaging.specifiers.SpecifierSet(specstring)
+
+              # Now we have a SpecifierSet for this dependency.
+              # One of the capabilities of pip's SpecifierSet is to filter a list of version strings,
+              #   returning only those that satisfy. We will be applying this filter to the list of
+              #   (exactly 1) versions of the given package that pip is intending to install (the
+              #   candidates_chosen_by_pip list). If the result is empty, pip has failed to satisfy
+              #   the dependency. If it is not empty (that is, if it has the one version provided
+              #   still in there), then pip has satisfied the dependency.
+              filtered_output = specset.filter([versions_chosen_by_pip[package_name]]) # todo: handle key error in case of pip weirdness resulting in no version selected at all for a depended on package
+              filtered = [x for x in filtered_output] # filtered_output from specset.filter is a generator. I just want a list to get len().
+              if filtered: # if list is not empty
+                assert( len(filtered) == 1 ) # should never have more than 1 - pip chooses one version of each package only. filtering the choices for each package should produce 1 or 0 results.
+                print ("  Hurray! " + req_key + "'s dependency on " + str(dep) + " has been met by pip's choice of version " + filtered[0])
+              else:
+                exception_string = '   Model ' + str(self.find_dep_conflicts) + ' conflict detected:\n    '
+                exception_string += req_key + " depends on " + str(dep)
+                exception_string += " and pip has selected inconsistent version " + versions_chosen_by_pip[package_name]
+                self._s_report_conflict(True, exception_string)
+                raise DependencyConflictError(exception_string)
+
+            # end of for each dep in dependencies_by_dist
+          # end of for each req_key in candidates_chosen_by_pip
+          
+          # We have not found a model 3 conflict.
+          #ipdb.set_trace()
+          self._s_report_conflict(False, "")
+          
+        # <~> end end-of-prep conflict reporting/detection section
 
     def _check_skip_installed(self, req_to_install, finder):
         """Check if req_to_install should be skipped.
@@ -659,12 +726,17 @@ class RequirementSet(object):
             dist = abstract_dist.dist(finder)
             more_reqs = []
 
+            req_to_install.version = dist.version # <~> Add version info to this install requirement, to be used later in conflict model 3 checking.
+
             def add_req(subreq):
+                #import ipdb # <~>
+                #ipdb.set_trace() # <~>
                 sub_install_req = InstallRequirement(
                     str(subreq),
                     req_to_install,
                     isolated=self.isolated,
                     wheel_cache=self._wheel_cache,
+                    #version=dist.version, # <~> for addition of version info to InstallRequirement - see change to InstallRequirement class (req_install.py) # Nope, this would be wrong - would be adding depending install requirement's version to depended-on install requirement. Correct way added. Leaving this commented out here in case I need it later.
                 )
                 more_reqs.extend(self.add_requirement(
                     sub_install_req, req_to_install.name))
@@ -722,7 +794,7 @@ class RequirementSet(object):
                       pass  # Good, it's not already defined.
                     else:
                       #ipdb.set_trace()
-                      assert False, "<~> We should never encounter a second initial install requirement. This code is written to handle one initial install requirement. Perhaps I've made a bad assumption about when comes_from is set?"
+                      assert False, "<~> We should never encounter a second initial install requirement. This code is written to handle one initial install requirement. If this is reached, perhaps I've made a bad assumption about when comes_from is set?"
                     # Now save the initial requirement.
                     self._s_initial_install_requirement_key = _s_get_distkey(dist)
 
@@ -787,7 +859,7 @@ class RequirementSet(object):
                             # If so, we continue along happily.
                             # If not, we have encountered a conflict of type 2.
                             assert(self.find_dep_conflicts == 2) # Shouldn't be able to get to this spot in the code unless find_dep_conflicts is 2.
-                            new_link = finder.find_requirement(InstallRequirement(subreq, None), False)
+                            new_link = finder.find_requirement(InstallRequirement(subreq, None), False) # <~> Later comment: I have a vague suspicion this line may have unintended consequences. The instantiation of a temporary, throw-away InstallRequirement may impact other things. No clear evidence of impact yet. Investigate later.
                             old_link = finder.find_requirement(old_install_req, False)
                             if new_link == old_link:
                               # Conflict Type 2 and A-OK.
@@ -931,11 +1003,16 @@ class RequirementSet(object):
 
 
 
-# <~> Helper function to determine the key for a given distribution to be used in the
+# <~> Helper functions to determine the key for a given distribution to be used in the
 #       dependency conflict db and the dependencies db.
 #     Updating to make lowercase.
+#     Splitting into two calls to allow for use on either a dist object or just name and version strings.
 def _s_get_distkey(dist):
-  return dist.project_name.lower() + "(" + dist.version + ")"
+  #return dist.project_name.lower() + "(" + dist.version + ")"
+  return _s_distkey_format(dist.project_name.lower(), dist.version)
+def _s_distkey_format(name, version):
+  return name + "(" + version + ")"
+
 
 # <~> Helper function to write the dependencies global to its file.
 def _s_write_dependencies_global(dependencies_db_filename):

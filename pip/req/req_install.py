@@ -66,7 +66,8 @@ class InstallRequirement(object):
     def __init__(self, req, comes_from, source_dir=None, editable=False,
                  link=None, as_egg=False, update=True, editable_options=None,
                  pycompile=True, markers=None, isolated=False, options=None,
-                 wheel_cache=None, constraint=False):
+                 wheel_cache=None, constraint=False, 
+                 version=None): # <~>
         self.extras = ()
         if isinstance(req, six.string_types):
             try:
@@ -86,6 +87,7 @@ class InstallRequirement(object):
         self.comes_from = comes_from
         self.constraint = constraint
         self.source_dir = source_dir
+        self.version = version # <~> adding the source sdist's version here for --find-dep-conflicts convenience, as is it is no longer readily available after creation of the InstallRequirement. 2016.01.13
         self.editable = editable
 
         if editable_options is None:
