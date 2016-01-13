@@ -947,7 +947,12 @@ def _s_ensure_dependencies_global_defined(dependencies_db_filename):
     dependencies_by_dist
   except NameError:
     dependencies_by_dist = None
-    # <~> Fill with JSON data from file.
+    # Fill with JSON data from file.
+    # If the dependencies db file doesn't exist, create it (open in append mode and close).
+    if not os.path.exists(dependencies_db_filename):
+      open(dependencies_db_filename, 'a').close()
+    # Open the dependencies db file and then try parsing it as a json.
+    # If the parse fails, just make an empty dict instead, and we'll overwrite the file later.
     with open(dependencies_db_filename,"r") as fobj:
       try:
         dependencies_by_dist = json.load(fobj)
@@ -967,6 +972,11 @@ def _s_ensure_dep_conflicts_global_defined(conflict_model, conflicts_db_filename
   except NameError:
     conflicts_by_dist = None
     # <~> Fill with JSON data from file.
+    # If the conflicts db file doesn't exist, create it (open in append mode and close).
+    if not os.path.exists(conflicts_db_filename):
+      open(conflicts_db_filename, 'a').close()
+    # Open the conflicts db file and then try parsing it as a json.
+    # If the parse fails, just make an empty dict instead, and we'll overwrite the file later.
     with open(conflicts_db_filename,"r") as fobj:
       try:
         conflicts_by_dist = json.load(fobj)
