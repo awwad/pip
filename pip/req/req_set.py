@@ -696,14 +696,16 @@ class RequirementSet(object):
                 
 
                 # <~> -------------------------------
-                # <~> -------------------------------
                 # <~> adding package dependency recording
                 #     (This obviously needs to be tidied up! Bad big O, etc.)
                 #     JSON can't use a tuple-keyed dictionary, so for the dependencies
                 #       dict, I'm using a single string with parens. (See distkey below.)
+                #     A JSON is remarkably inefficient for frequent rewriting, so this
+                #       should probably be changed to pickle or sqlite or something.
+                #     I did not want to make a mess of pip's normal return stack, so I
+                #       didn't take that (most natural) route.
                 # <~> -------------------------------
-                # <~> -------------------------------
-                #ipdb.set_trace() # <~>
+                #ipdb.set_trace()
                 if self.find_dep_conflicts in [1, 2, 3]:
                   import time as stdlib_time
                   #print("  Code sanity check: File "+__file__+", modified date is: "+stdlib_time.ctime(os.path.getmtime(__file__)))
@@ -712,13 +714,16 @@ class RequirementSet(object):
                   ##   since it's not apparently possible to retrieve dist info for them
                   ##   later, when we need it to store conflict information.
                   if req_to_install.comes_from is None:
+                    # If self._s_initial_install_requirement_key is already defined, assert False.
+                    # My code assumes we are instructed to install only one package (using --find-dep-conflicts, etc.)
                     try:
                       self._s_initial_install_requirement_key
                     except AttributeError:
-                      pass
+                      pass  # Good, it's not already defined.
                     else:
                       #ipdb.set_trace()
                       assert False, "<~> We should never encounter a second initial install requirement. This code is written to handle one initial install requirement. Perhaps I've made a bad assumption about when comes_from is set?"
+                    # Now save the initial requirement.
                     self._s_initial_install_requirement_key = _s_get_distkey(dist)
 
                   dist_reqs = dist.requires(available_requested)
@@ -748,10 +753,9 @@ class RequirementSet(object):
                 # <~> -------------------------------
 
                 for subreq in dist.requires(available_requested): # dist.requires returns all the requirements parsed for this dist
-                    # <~> -------------------------------
+
                     # <~> -------------------------------
                     # <~> adding conflict detection
-                    # <~> -------------------------------
                     # <~> -------------------------------
                     # Does this subreq's package name exist in the existing requirements for this requirement set?
                     # if subreq.key in [v.req.key for v in self.requirements.values()]:
