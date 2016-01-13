@@ -1007,7 +1007,7 @@ class RequirementSet(object):
       ### Turns out we can't use get_dist(). Temp file is deleted? Not treated as a valid dist? Dist has ambiguous semantics, perhaps?
       ##initial_req_distkey = _s_get_distkey(initial_req.get_dist())
       conflicts_by_dist[self._s_initial_install_requirement_key] = conflict_exists
-      print("  Adding",self._s_initial_install_requirement_key,"to Model " + str(self.find_dep_conflicts) + " conflicts db.")
+      print("  Adding",self._s_initial_install_requirement_key,"to Model " + str(self.find_dep_conflicts) + " conflicts db. (Conflict: " + str(conflict_exists) + ")")
       _s_write_dep_conflicts_global(self.find_dep_conflicts, self.conflicts_db_file)
       
   
