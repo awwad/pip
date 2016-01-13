@@ -412,7 +412,7 @@ class RequirementSet(object):
             # Get the key used to indicate that sdist in our dependencies db.
             req_key = _s_distkey_format(req.name, req.version)
             candidates_chosen_by_pip.append(req_key)
-            versions_chosen_by_pip[req.name] = req.version
+            versions_chosen_by_pip[req.name.lower()] = req.version
           
           # Walk through that list and check the dependencies of each item in our dependencies db.
           # If pip has avoided a dependency conflict, all of these dependencies should be satisfied by
@@ -422,7 +422,7 @@ class RequirementSet(object):
             # For every registered dependency of this sdist in the dependencies db:
             for dep in dependencies_by_dist[req_key]:
               # Check to see if that dependency is met by something in the set of install requirements pip chose.
-              package_name = dep[0]
+              package_name = dep[0].lower()
               list_of_spec_tuples = dep[1]
               specstring = ""
               # dep is a 2-tuple, first entry package name, second entry list of tuples (each constituting a specifier)
@@ -451,9 +451,18 @@ class RequirementSet(object):
                 filtered_output = specset.filter([versions_chosen_by_pip[package_name]])
               except KeyError:
                 # todo: handle key error in case of pip weirdness resulting in no version selected at all for a depended on package
-                #import ipdb
-                #ipdb.set_trace()
+                import ipdb
+                ipdb.set_trace()
+                
+                #print("    " + req_key + " depends on " + str(dep) + " but pip has not selected ANY version of " + package_name)
+                #exception_string = '   TENTATIVE Model ' + str(self.find_dep_conflicts) + ' conflict detected:\n    '
+                #exception_string += req_key + " depends on " + str(dep)
+                #exception_string += " but pip has not selected ANY version of " + package_name
+                #exception_string += "\n   pip's install candidates: " str(candidates_chosen_by_pip)
+                #self._s_report_conflict(True, exception_string)
+                #raise DependencyConflictError(exception_string)
                 raise
+
               filtered = [x for x in filtered_output] # filtered_output from specset.filter is a generator. I just want a list to get len().
               if filtered: # if list is not empty
                 assert( len(filtered) == 1 ) # should never have more than 1 - pip chooses one version of each package only. filtering the choices for each package should produce 1 or 0 results.
