@@ -25,10 +25,11 @@ from pip.vcs import vcs
 
 #import pip # <~>
 import json # <~>
-_S_DEPENDENCIES_DB_FILENAME = "/Users/s/w/git/pypi-depresolve/dependencies_db.json"
-_S_DEPENDENCY_CONFLICTS_DB_FILENAME = "/Users/s/w/git/pypi-depresolve/conflicts_db.json"
-_S_DEPENDENCY_CONFLICTS2_DB_FILENAME = "/Users/s/w/git/pypi-depresolve/conflicts_2_db.json"
-_S_DEPENDENCY_CONFLICTS3_DB_FILENAME = "/Users/s/w/git/pypi-depresolve/conflicts_3_db.json"
+# <~> Except for the log filename, will now be taking these from pip install arguments instead.
+#_S_DEPENDENCIES_DB_FILENAME = "/Users/s/w/git/pypi-depresolve/dependencies_db.json"
+#_S_DEPENDENCY_CONFLICTS_DB_FILENAME = "/Users/s/w/git/pypi-depresolve/conflicts_db.json"
+#_S_DEPENDENCY_CONFLICTS2_DB_FILENAME = "/Users/s/w/git/pypi-depresolve/conflicts_2_db.json"
+#_S_DEPENDENCY_CONFLICTS3_DB_FILENAME = "/Users/s/w/git/pypi-depresolve/conflicts_3_db.json"
 #_S_DEPENDENCIES_LOG_FILENAME = "/Users/s/w/git/pypi-depresolve/_s_deps_from_pip.json"
 _S_DEPENDENCIES_CONFLICT_LOG_FILENAME = "/Users/s/w/git/pypi-depresolve/conflicts_db.log"
 
@@ -154,7 +155,7 @@ class RequirementSet(object):
                  use_user_site=False, session=None, pycompile=True,
                  isolated=False, wheel_download_dir=None,
                  wheel_cache=None, require_hashes=False,
-                 find_dep_conflicts=0): # <~>
+                 find_dep_conflicts=0, conflicts_db_file=None, dependencies_db_file=None): # <~>
         """Create a RequirementSet.
 
         :param wheel_download_dir: Where still-packed .whl files should be
@@ -204,6 +205,9 @@ class RequirementSet(object):
         # Maps from install_req -> dependencies_of_install_req
         self._dependencies = defaultdict(list)
         self.find_dep_conflicts = find_dep_conflicts # <~>
+        self.conflicts_db_file = conflicts_db_file # <~>
+        self.dependencies_db_file = dependencies_db_file # <~>
+
 
 
     def __str__(self):
@@ -736,7 +740,7 @@ class RequirementSet(object):
                       dependencies_by_dist[distkey].append( (subreq.project_name.lower(), subreq.specs) ) # now using lowercase
 
                     # <~> Write the dependency data from the global back to file.
-                    _s_write_dependencies_global()
+                    _s_write_dependencies_global(self.dependencies_db_file)
                   # <~> end 12/14/2015 additions and indentation
 
                 # <~> -------------------------------
@@ -909,13 +913,13 @@ class RequirementSet(object):
         assert False, "<~> Coding error."+str(exc)
 
       global conflicts_by_dist
-      _s_ensure_dep_conflicts_global_defined(self.find_dep_conflicts)
+      _s_ensure_dep_conflicts_global_defined(self.find_dep_conflicts, self.conflicts_db_file)
 
       ### Turns out we can't use get_dist(). Temp file is deleted? Not treated as a valid dist? Dist has ambiguous semantics, perhaps?
       ##initial_req_distkey = _s_get_distkey(initial_req.get_dist())
       conflicts_by_dist[self._s_initial_install_requirement_key] = conflict_exists
       print("  Adding",self._s_initial_install_requirement_key,"to Model " + str(self.find_dep_conflicts) + " conflicts db.")
-      _s_write_dep_conflicts_global(self.find_dep_conflicts)
+      _s_write_dep_conflicts_global(self.find_dep_conflicts, self.conflicts_db_file)
       
   
       
@@ -929,37 +933,22 @@ class RequirementSet(object):
 def _s_get_distkey(dist):
   return dist.project_name.lower() + "(" + dist.version + ")"
 
-# <~> Helper function to ensure that the global dependencies dictionary is defined,
-#       importing it now if not.
-def _s_ensure_dependencies_global_defined():
-  global dependencies_by_dist
-  try: # If the global is not defined yet, load the contents of the json file.
-    dependencies_by_dist
-  except NameError:
-    dependencies_by_dist = None
-    # <~> Fill with JSON data from file.
-    with open(_S_DEPENDENCIES_DB_FILENAME,"r") as fobj:
-      try:
-        dependencies_by_dist = json.load(fobj)
-      except ValueError:
-        dependencies_by_dist = dict() # If it was invalid or empty, replace with empty.
-
 # <~> Helper function to write the dependencies global to its file.
-def _s_write_dependencies_global():
+def _s_write_dependencies_global(dependencies_db_filename):
   global dependencies_by_dist
-  with open(_S_DEPENDENCIES_DB_FILENAME,"w") as fobj:
+  with open(dependencies_db_filename,"w") as fobj:
     json.dump(dependencies_by_dist, fobj)
 
 # <~> Helper function to ensure that the global dependencies dictionary is defined,
 #       importing it now if not.
-def _s_ensure_dependencies_global_defined():
+def _s_ensure_dependencies_global_defined(dependencies_db_filename):
   global dependencies_by_dist
   try: # If the global is not defined yet, load the contents of the json file.
     dependencies_by_dist
   except NameError:
     dependencies_by_dist = None
     # <~> Fill with JSON data from file.
-    with open(_S_DEPENDENCIES_DB_FILENAME,"r") as fobj:
+    with open(dependencies_db_filename,"r") as fobj:
       try:
         dependencies_by_dist = json.load(fobj)
       except ValueError:
@@ -967,7 +956,7 @@ def _s_ensure_dependencies_global_defined():
 
 # <~> Helper function to ensure that the global dependency conflicts dictionary is defined,
 #       importing it now if not.
-def _s_ensure_dep_conflicts_global_defined(conflict_model):
+def _s_ensure_dep_conflicts_global_defined(conflict_model, conflicts_db_filename):
   # Ensure we're only using one conflict model. These are bools.
   #assert( use_model_1 + use_model_2 + use_model_3 == 1 )
   assert(conflict_model in [1,2,3])
@@ -978,14 +967,6 @@ def _s_ensure_dep_conflicts_global_defined(conflict_model):
   except NameError:
     conflicts_by_dist = None
     # <~> Fill with JSON data from file.
-    conflicts_db_filename = None
-    if conflict_model == 1:
-      conflicts_db_filename = _S_DEPENDENCY_CONFLICTS_DB_FILENAME
-    elif conflict_model == 2:
-      conflicts_db_filename = _S_DEPENDENCY_CONFLICTS2_DB_FILENAME
-    else:
-      assert(conflict_model == 3)
-      conflicts_db_filename = _S_DEPENDENCY_CONFLICTS3_DB_FILENAME
     with open(conflicts_db_filename,"r") as fobj:
       try:
         conflicts_by_dist = json.load(fobj)
@@ -993,22 +974,13 @@ def _s_ensure_dep_conflicts_global_defined(conflict_model):
         conflicts_by_dist = dict() # If it was invalid or empty, replace with empty.
 
 # <~> Helper function to write the dependencies conflicts global to its file.
-def _s_write_dep_conflicts_global(conflict_model):
+def _s_write_dep_conflicts_global(conflict_model, conflicts_db_filename):
   ## Ensure we're only using one conflict model. These are bools.
   #assert( use_model_1 + use_model_2 + use_model_3 == 1 )
   assert(conflict_model in [1,2,3])
 
   global conflicts_by_dist
 
-  if conflict_model == 1:
-    conflicts_db_filename = _S_DEPENDENCY_CONFLICTS_DB_FILENAME
-  elif conflict_model == 2:
-    conflicts_db_filename = _S_DEPENDENCY_CONFLICTS2_DB_FILENAME
-  else:
-    assert(conflict_model == 3)
-    conflicts_db_filename = _S_DEPENDENCY_CONFLICTS3_DB_FILENAME
-    
-  
   with open(conflicts_db_filename,"w") as fobj:
     json.dump(conflicts_by_dist, fobj)
 

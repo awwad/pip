@@ -83,6 +83,19 @@ class InstallCommand(RequirementCommand):
                  'defining a conflict as a scenario in which pip chooses a set of '
                  'packages to install that does not actually meet all constraints of '
                  'those selected packages.')
+        # <~> These options go with the above (--find-dep-conflicts).
+        cmd_opts.add_option(
+            '--dependencies-db-file',
+            dest='dependencies_db_file',
+            help='<~> For use with --find-dep-conflicts. Specify the filename for the '
+                 'json file where dependency information for discovered packages will '
+                 'be saved.'
+        cmd_opts.add_option(
+            '--conflicts-db-file',
+            dest='--conflicts_db_file',
+            help='<~> For use with --find-dep-conflicts. Specify the filename for the '
+                 'json file where conflict information for packages with discovered '
+                 'conflicts will be saved.'
         # <~> end
 
         cmd_opts.add_option(
