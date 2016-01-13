@@ -724,7 +724,7 @@ class RequirementSet(object):
                   dist_reqs = dist.requires(available_requested)
                   global dependencies_by_dist # rushing for now
                   # Ensure that the dependency dictionary is defined, importing it from its file if not.
-                  _s_ensure_dependencies_global_defined()
+                  _s_ensure_dependencies_global_defined(self.dependencies_db_file)
 
                   distkey = _s_get_distkey(dist)
                 

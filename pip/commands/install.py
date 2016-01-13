@@ -92,7 +92,7 @@ class InstallCommand(RequirementCommand):
                  'be saved.')
         cmd_opts.add_option(
             '--conflicts-db-file',
-            dest='--conflicts_db_file',
+            dest='conflicts_db_file',
             help='<~> For use with --find-dep-conflicts. Specify the filename for the '
                  'json file where conflict information for packages with discovered '
                  'conflicts will be saved.')
@@ -319,6 +319,8 @@ class InstallCommand(RequirementCommand):
                     wheel_cache=wheel_cache,
                     require_hashes=options.require_hashes,
                     find_dep_conflicts=options.find_dep_conflicts, # <~>
+                    dependencies_db_file=options.dependencies_db_file, # <~>
+                    conflicts_db_file=options.conflicts_db_file, # <~>
                 )
 
                 self.populate_requirement_set(
