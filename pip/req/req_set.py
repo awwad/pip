@@ -418,9 +418,6 @@ class RequirementSet(object):
           # If pip has avoided a dependency conflict, all of these dependencies should be satisfied by
           #   something in the candidates_chosen_by_pip list.
           # For every pip-selected install requirement:
-          # EDIT - no longer this, but still have to test on one: Note --- I'm going to start by writing this to assume there's only one specification, I think.
-          # Note --- starting by looking only at the first level of dependencies.
-          # TODO: next have to inspect full dependency tree.
           for req_key in candidates_chosen_by_pip:
             # For every registered dependency of this sdist in the dependencies db:
             for dep in dependencies_by_dist[req_key]:
@@ -449,7 +446,14 @@ class RequirementSet(object):
               #   candidates_chosen_by_pip list). If the result is empty, pip has failed to satisfy
               #   the dependency. If it is not empty (that is, if it has the one version provided
               #   still in there), then pip has satisfied the dependency.
-              filtered_output = specset.filter([versions_chosen_by_pip[package_name]]) # todo: handle key error in case of pip weirdness resulting in no version selected at all for a depended on package
+              filtered_output = None
+              try:
+                filtered_output = specset.filter([versions_chosen_by_pip[package_name]])
+              except KeyError:
+                # todo: handle key error in case of pip weirdness resulting in no version selected at all for a depended on package
+                #import ipdb
+                #ipdb.set_trace()
+                raise
               filtered = [x for x in filtered_output] # filtered_output from specset.filter is a generator. I just want a list to get len().
               if filtered: # if list is not empty
                 assert( len(filtered) == 1 ) # should never have more than 1 - pip chooses one version of each package only. filtering the choices for each package should produce 1 or 0 results.
