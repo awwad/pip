@@ -89,13 +89,13 @@ class InstallCommand(RequirementCommand):
             dest='dependencies_db_file',
             help='<~> For use with --find-dep-conflicts. Specify the filename for the '
                  'json file where dependency information for discovered packages will '
-                 'be saved.'
+                 'be saved.')
         cmd_opts.add_option(
             '--conflicts-db-file',
             dest='--conflicts_db_file',
             help='<~> For use with --find-dep-conflicts. Specify the filename for the '
                  'json file where conflict information for packages with discovered '
-                 'conflicts will be saved.'
+                 'conflicts will be saved.')
         # <~> end
 
         cmd_opts.add_option(
