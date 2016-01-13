@@ -388,7 +388,7 @@ class RequirementSet(object):
         elif self.find_dep_conflicts == 3:
           #import ipdb
           #ipdb.set_trace()
-          print("Currently writing conflict model 3 detection code.")
+          #print("Currently writing conflict model 3 detection code.")
 
           # Here, we process the requirements.
           # self.requirements.keys() yields project names
@@ -453,7 +453,7 @@ class RequirementSet(object):
               filtered = [x for x in filtered_output] # filtered_output from specset.filter is a generator. I just want a list to get len().
               if filtered: # if list is not empty
                 assert( len(filtered) == 1 ) # should never have more than 1 - pip chooses one version of each package only. filtering the choices for each package should produce 1 or 0 results.
-                print ("  Hurray! " + req_key + "'s dependency on " + str(dep) + " has been met by pip's choice of version " + filtered[0])
+                print ("    Hurray! " + req_key + "'s dependency on " + str(dep) + " has been met by pip's choice of version " + filtered[0])
               else:
                 exception_string = '   Model ' + str(self.find_dep_conflicts) + ' conflict detected:\n    '
                 exception_string += req_key + " depends on " + str(dep)
