@@ -793,7 +793,7 @@ class RequirementSet(object):
                 #ipdb.set_trace()
                 if self.find_dep_conflicts in [1, 2, 3]:
                   import time as stdlib_time
-                  #print("  Code sanity check: File "+__file__+", modified date is: "+stdlib_time.ctime(os.path.getmtime(__file__)))
+                  #print("  Code sanity check: File " + __file__ + " modified date is: " + stdlib_time.ctime(os.path.getmtime(__file__)))
                   #ipdb.set_trace()
                   ## Todo: here, need to save information about the initial requirements,
                   ##   since it's not apparently possible to retrieve dist info for them
@@ -826,10 +826,10 @@ class RequirementSet(object):
                   this_dist_deps_temp = []
                   for subreq in dist_reqs:
                     this_dist_deps_temp.append( [subreq.project_name.lower(), subreq.specs] ) # now using lowercase; now using list for equality test since the json load yields lists, too /:
-                  # This is not excellent because of the equality check.
+                  # If the deps we just found are not the same as those in the dep database (dictionary), overwrite and write to database.
                   if distkey not in dependencies_by_dist or not _s_deps_are_equal(dependencies_by_dist[distkey], this_dist_deps_temp):
                     dependencies_by_dist[distkey] = this_dist_deps_temp
-                    print("    " + str(dist), "depends on", str(dist_reqs))
+                    print("    " + str(dist) + " depends on " + str(dist_reqs))
                     # <~> Write the dependency data from the global back to file.
                     #     This is exceedingly often, but I would rather not lose any dependency data,
                     #       and I would also rather not have an enormous try/except that writes and
@@ -880,7 +880,7 @@ class RequirementSet(object):
                             old_link = finder.find_requirement(old_install_req, False)
                             if new_link == old_link:
                               # Conflict Type 2 and A-OK.
-                              #print("    <~> Debug Info: Multiple packages to be installed have the same dependency, but the first-choice package selected by pip for both packages resolves to the same one. old_link="+str(old_link),"and new_link="+str(new_link))
+                              #print("    <~> Debug Info: Multiple packages to be installed have the same dependency, but the first-choice package selected by pip for both packages resolves to the same one. old_link=" + str(old_link) + " and new_link=" + str(new_link))
                               pass
                             else: # Conflict Type 2 and NOT OK.
                               #ipdb.set_trace()
@@ -1011,7 +1011,7 @@ class RequirementSet(object):
       ### Turns out we can't use get_dist(). Temp file is deleted? Not treated as a valid dist? Dist has ambiguous semantics, perhaps?
       ##initial_req_distkey = _s_get_distkey(initial_req.get_dist())
       conflicts_by_dist[self._s_initial_install_requirement_key] = conflict_exists
-      print("  Adding",self._s_initial_install_requirement_key,"to Model " + str(self.find_dep_conflicts) + " conflicts db. (Conflict: " + str(conflict_exists) + ")")
+      print("  Adding " + self._s_initial_install_requirement_key + " to Model " + str(self.find_dep_conflicts) + " conflicts db. (Conflict: " + str(conflict_exists) + ")")
       _s_write_dep_conflicts_global(self.find_dep_conflicts, self.conflicts_db_file)
       
   
