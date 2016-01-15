@@ -31,7 +31,7 @@ import json # <~>
 #_S_DEPENDENCY_CONFLICTS2_DB_FILENAME = "/Users/s/w/git/pypi-depresolve/conflicts_2_db.json"
 #_S_DEPENDENCY_CONFLICTS3_DB_FILENAME = "/Users/s/w/git/pypi-depresolve/conflicts_3_db.json"
 #_S_DEPENDENCIES_LOG_FILENAME = "/Users/s/w/git/pypi-depresolve/_s_deps_from_pip.json"
-_S_DEPENDENCIES_CONFLICT_LOG_FILENAME = "/Users/s/w/git/pypi-depresolve/conflicts_db.log"
+#_S_DEPENDENCIES_CONFLICT_LOG_FILENAME = "/Users/s/w/git/pypi-depresolve/conflicts_db.log"
 
 logger = logging.getLogger(__name__)
 
@@ -995,9 +995,10 @@ class RequirementSet(object):
       assert(conflict_exists in [True, False]) # Expecting a boolean.
       assert(type(exception_string) is str) # Expecting a string.
 
-      if conflict_exists:
-        with open(_S_DEPENDENCIES_CONFLICT_LOG_FILENAME,"a") as fobj_conflicts_log:
-          fobj_conflicts_log.write(exception_string)
+      # TODO: Consider turning this back on and taking log location as a parameter to pip.
+      #if conflict_exists:
+      #  with open(_S_DEPENDENCIES_CONFLICT_LOG_FILENAME,"a") as fobj_conflicts_log:
+      #    fobj_conflicts_log.write(exception_string)
 
       # <~> Fetch initial install requirement, stored earlier.
       try:
