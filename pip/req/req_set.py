@@ -827,10 +827,13 @@ class RequirementSet(object):
                   for subreq in dist_reqs:
                     this_dist_deps_temp.append( (subreq.project_name.lower(), subreq.specs) ) # now using lowercase
                   # This is not excellent because of the equality check.
-                  if distkey not in dependencies_by_dist or not dependencies_by_dist[distkey] == this_dist_deps_temp:
+                  if distkey not in dependencies_by_dist or not _s_deps_are_equal(dependencies_by_dist[distkey], this_dist_deps_temp):
                     dependencies_by_dist[distkey] = this_dist_deps_temp
                     print("    " + str(dist), "depends on", str(dist_reqs))
                     # <~> Write the dependency data from the global back to file.
+                    #     This is exceedingly often, but I would rather not lose any dependency data,
+                    #       and I would also rather not have an enormous try/except that writes and
+                    #       then re-raises.
                     _s_write_dependencies_global(self.dependencies_db_file)
 
 
@@ -1089,3 +1092,20 @@ def _s_write_dep_conflicts_global(conflict_model, conflicts_db_filename):
   with open(conflicts_db_filename,"w") as fobj:
     json.dump(conflicts_by_dist, fobj)
 
+# <~> Returns true if given lists of dependencies that are equivalent (regardless of order).
+#     Expects e.g.:
+#        a =  [ [ 'foo', [ '==', '1.0' ] ],
+#               [ 'bar', [] ],
+#               [ 'bat', ['>=', '1.57'], ['<=', '1.57.99'] ] 
+#
+#        b =  [ [ 'bat', ['>=', '1.57'], ['<=', '1.57.99'] ], 
+#               [ 'foo', [ '==', '1.0' ] ],
+#               [ 'bar', [] ] ]
+#
+#     Specifically, it returns true if every element in the first list is in the second list
+#       and vice versa.
+#     This is not fast, but it's a hell of a lot faster than writing a large json to disk.
+#
+def _s_deps_are_equal(deps_a, deps_b):
+  all_a_in_b = False in [dep in deps_b for dep in deps_a]
+  all_b_in_a = False in [dep in deps_a for dep in deps_b]
