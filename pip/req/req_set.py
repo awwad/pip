@@ -825,7 +825,7 @@ class RequirementSet(object):
                   #     It will err on the side of extra work, not the side of being wrong.
                   this_dist_deps_temp = []
                   for subreq in dist_reqs:
-                    this_dist_deps_temp.append( (subreq.project_name.lower(), subreq.specs) ) # now using lowercase
+                    this_dist_deps_temp.append( [subreq.project_name.lower(), subreq.specs] ) # now using lowercase; now using list for equality test since the json load yields lists, too /:
                   # This is not excellent because of the equality check.
                   if distkey not in dependencies_by_dist or not _s_deps_are_equal(dependencies_by_dist[distkey], this_dist_deps_temp):
                     dependencies_by_dist[distkey] = this_dist_deps_temp
@@ -1106,13 +1106,24 @@ def _s_write_dep_conflicts_global(conflict_model, conflicts_db_filename):
 #       and vice versa. Also returns true if both are empty lists.
 #     This is not fast, but it's a hell of a lot faster than writing a large json to disk.
 #
+#     set(deps_a) == set(deps_b)         would be nice, but lists aren't hashable
+#     sorted(deps_a) == sorted(deps_b)   may be faster - O( NlogN ) rather than O( N^2 )
+#
+#      Yeah, let's go with sorted instead of original solution. Faster and tidier.
+#
 def _s_deps_are_equal(deps_a, deps_b):
-  if not deps_a and not deps_b:
-    return True
-  else:
-    all_a_in_b = False in [dep in deps_b for dep in deps_a]
-    all_b_in_a = False in [dep in deps_a for dep in deps_b]
-    equality = all_a_in_b and all_b_in_a
-    #if not equality:
-    #  print("  Stored deps and freshly harvested deps not equal: \n    " + str(deps_a) + "\n    " + str(deps_b))
-    return equality #all_a_in_b and all_b_in_a
+  #if not deps_a and not deps_b:
+  #  return True
+  #else:
+  #  all_a_in_b = False in [dep in deps_b for dep in deps_a]
+  #  all_b_in_a = False in [dep in deps_a for dep in deps_b]
+  #  equality = all_a_in_b and all_b_in_a
+  #  #if not equality:
+  #  #  print("  Stored deps and freshly harvested deps not equal: \n    " + str(deps_a) + "\n    " + str(deps_b))
+  #  return equality #all_a_in_b and all_b_in_a
+  equality = sorted(deps_a) == sorted(deps_b)
+  if not equality:
+    print("  Debug: Stored deps and freshly harvested deps ARE NOT EQUAL: \n    " + str(deps_a) + "\n    " + str(deps_b))
+  #else:
+  #  print("  Stored deps and freshly harvested deps are equal: \n    " + str(deps_a) + "\n    " + str(deps_b))
+  return equality
