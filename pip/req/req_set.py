@@ -1103,10 +1103,16 @@ def _s_write_dep_conflicts_global(conflict_model, conflicts_db_filename):
 #               [ 'bar', [] ] ]
 #
 #     Specifically, it returns true if every element in the first list is in the second list
-#       and vice versa.
+#       and vice versa. Also returns true if both are empty lists.
 #     This is not fast, but it's a hell of a lot faster than writing a large json to disk.
 #
 def _s_deps_are_equal(deps_a, deps_b):
-  all_a_in_b = False in [dep in deps_b for dep in deps_a]
-  all_b_in_a = False in [dep in deps_a for dep in deps_b]
-  return all_a_in_b and all_b_in_a
+  if not deps_a and not deps_b:
+    return True
+  else:
+    all_a_in_b = False in [dep in deps_b for dep in deps_a]
+    all_b_in_a = False in [dep in deps_a for dep in deps_b]
+    equality = all_a_in_b and all_b_in_a
+    #if not equality:
+    #  print("  Stored deps and freshly harvested deps not equal: \n    " + str(deps_a) + "\n    " + str(deps_b))
+    return equality #all_a_in_b and all_b_in_a
