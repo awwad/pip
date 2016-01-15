@@ -1109,3 +1109,4 @@ def _s_write_dep_conflicts_global(conflict_model, conflicts_db_filename):
 def _s_deps_are_equal(deps_a, deps_b):
   all_a_in_b = False in [dep in deps_b for dep in deps_a]
   all_b_in_a = False in [dep in deps_a for dep in deps_b]
+  return all_a_in_b and all_b_in_a
