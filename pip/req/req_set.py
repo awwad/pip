@@ -399,13 +399,15 @@ class RequirementSet(object):
           # WRT #1, In the worst case, I can use self.requirements.values()[n].link to get the link of the nth requirement.
           #
           # I'll start by trying #1
-          # Yeah, version info not being available afterwards for a given requirement is a nuisance.
-          # Let's just change that by adding it to the InstallRequirement class once and for all. /:
+          # Yeah, version info not being available afterwards for a given
+          # requirement is a nuisance. Let's just change that by adding it to
+          # the InstallRequirement class once and for all. /:
 
           # Done.... Let's now see if it's available.
 
-          # Populate a list of the set of install candidates finally chosen by pip to install together in order to
-          #   satisfy the initial install requirement passed to pip.
+          # Populate a list of the set of install candidates finally chosen by
+          # pip to install together in order to satisfy the initial install
+          # requirement passed to pip.
           candidates_chosen_by_pip = []
           versions_chosen_by_pip = dict() # will also populate this for now. redundant, but convenient at the moment.
           for req in self.requirements.values():
@@ -414,9 +416,10 @@ class RequirementSet(object):
             candidates_chosen_by_pip.append(req_key)
             versions_chosen_by_pip[req.name.lower()] = req.version
           
-          # Walk through that list and check the dependencies of each item in our dependencies db.
-          # If pip has avoided a dependency conflict, all of these dependencies should be satisfied by
-          #   something in the candidates_chosen_by_pip list.
+          # Walk through that list and check the dependencies of each item in
+          # our dependencies db. If pip has avoided a dependency conflict, all
+          # of these dependencies should be satisfied by something in the
+          # candidates_chosen_by_pip list.
           # For every pip-selected install requirement:
           for req_key in candidates_chosen_by_pip:
             # For every registered dependency of this sdist in the dependencies db:
@@ -440,17 +443,22 @@ class RequirementSet(object):
               specset = pip._vendor.packaging.specifiers.SpecifierSet(specstring)
 
               # Now we have a SpecifierSet for this dependency.
-              # One of the capabilities of pip's SpecifierSet is to filter a list of version strings,
-              #   returning only those that satisfy. We will be applying this filter to the list of
-              #   (exactly 1) versions of the given package that pip is intending to install (the
-              #   candidates_chosen_by_pip list). If the result is empty, pip has failed to satisfy
-              #   the dependency. If it is not empty (that is, if it has the one version provided
-              #   still in there), then pip has satisfied the dependency.
+
+              # One of the capabilities of pip's SpecifierSet is to filter a
+              # list of version strings, returning only those that satisfy. We
+              # will be applying this filter to the list of (exactly 1)
+              # versions of the given package that pip is intending to install
+              # (the candidates_chosen_by_pip list). If the result is empty,
+              # pip has failed to satisfy the dependency. If it is not empty
+              # (that is, if it has the one version provided still in there),
+              # then pip has satisfied the dependency.
+
               filtered_output = None
               try:
                 filtered_output = specset.filter([versions_chosen_by_pip[package_name]])
               except KeyError:
-                # todo: handle key error in case of pip weirdness resulting in no version selected at all for a depended on package
+                # todo: handle key error in case of pip weirdness resulting in
+                # no version selected at all for a depended on package
                 import ipdb
                 ipdb.set_trace()
                 
@@ -463,9 +471,14 @@ class RequirementSet(object):
                 #raise DependencyConflictError(exception_string)
                 raise
 
-              filtered = [x for x in filtered_output] # filtered_output from specset.filter is a generator. I just want a list to get len().
+              # filtered_output from specset.filter is a generator.
+              # I just want a list to get len().
+              filtered = [x for x in filtered_output]
               if filtered: # if list is not empty
-                assert( len(filtered) == 1 ) # should never have more than 1 - pip chooses one version of each package only. filtering the choices for each package should produce 1 or 0 results.
+                # should never have more than 1 - pip chooses one version of
+                # each package only. filtering the choices for each package
+                # should produce 1 or 0 results.
+                assert( len(filtered) == 1 )
                 #print ("    Satisfied: " + req_key + "'s dependency on " + str(dep) + " has been met by pip's choice of version " + filtered[0])
               else:
                 exception_string = '   Model ' + str(self.find_dep_conflicts) + ' conflict detected:\n    '
