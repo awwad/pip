@@ -24,14 +24,17 @@ from pip.utils.logging import indent_log
 from pip.vcs import vcs
 
 import pip._vendor.packaging.specifiers # <~> for SpecifierSet, for conflict model 3 code
-import json # <~>
-# <~> Except for the log filename, will now be taking these from pip install arguments instead.
-#_S_DEPENDENCIES_DB_FILENAME = "/Users/s/w/git/pypi-depresolve/dependencies_db.json"
-#_S_DEPENDENCY_CONFLICTS_DB_FILENAME = "/Users/s/w/git/pypi-depresolve/conflicts_db.json"
-#_S_DEPENDENCY_CONFLICTS2_DB_FILENAME = "/Users/s/w/git/pypi-depresolve/conflicts_2_db.json"
-#_S_DEPENDENCY_CONFLICTS3_DB_FILENAME = "/Users/s/w/git/pypi-depresolve/conflicts_3_db.json"
-#_S_DEPENDENCIES_LOG_FILENAME = "/Users/s/w/git/pypi-depresolve/_s_deps_from_pip.json"
-#_S_DEPENDENCIES_CONFLICT_LOG_FILENAME = "/Users/s/w/git/pypi-depresolve/conflicts_db.log"
+
+
+# <~> Import some functions and globals from the scraper calling us.
+# Should probably do this only when --find-dep-conflicts option is on. TODO.
+from pypi_depresolve.scrape_deps_and_detect_conflicts import \
+    dependencies_by_dist, \
+    conflicts_by_dist, \
+    get_distkey, \
+    deps_are_equal, \
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -155,7 +158,7 @@ class RequirementSet(object):
                  use_user_site=False, session=None, pycompile=True,
                  isolated=False, wheel_download_dir=None,
                  wheel_cache=None, require_hashes=False,
-                 find_dep_conflicts=0, conflicts_db_file=None, dependencies_db_file=None): # <~>
+                 find_dep_conflicts=0): # <~>
         """Create a RequirementSet.
 
         :param wheel_download_dir: Where still-packed .whl files should be
@@ -205,8 +208,6 @@ class RequirementSet(object):
         # Maps from install_req -> dependencies_of_install_req
         self._dependencies = defaultdict(list)
         self.find_dep_conflicts = find_dep_conflicts # <~>
-        self.conflicts_db_file = conflicts_db_file # <~>
-        self.dependencies_db_file = dependencies_db_file # <~>
 
 
 
@@ -366,7 +367,6 @@ class RequirementSet(object):
         # based on link type.
         discovered_reqs = []
         hash_errors = HashErrors()
-        #ipdb.set_trace() # <~>
         for req in chain(root_reqs, discovered_reqs):
             try:
                 discovered_reqs.extend(self._prepare_file(
@@ -385,10 +385,9 @@ class RequirementSet(object):
         if self.find_dep_conflicts in [1, 2]:
           print("    <~> Success! - found no dependency conflicts.")
           self._s_report_conflict(False, "")
+        
         elif self.find_dep_conflicts == 3:
-          #import ipdb
-          #ipdb.set_trace()
-          #print("Currently writing conflict model 3 detection code.")
+          global dependencies_by_dist
 
           # Here, we process the requirements.
           # self.requirements.keys() yields project names
@@ -402,8 +401,6 @@ class RequirementSet(object):
           # Yeah, version info not being available afterwards for a given
           # requirement is a nuisance. Let's just change that by adding it to
           # the InstallRequirement class once and for all. /:
-
-          # Done.... Let's now see if it's available.
 
           # Populate a list of the set of install candidates finally chosen by
           # pip to install together in order to satisfy the initial install
@@ -449,16 +446,6 @@ class RequirementSet(object):
               except KeyError:
                 # todo: handle key error in case of pip weirdness resulting in
                 # no version selected at all for a depended on package
-                import ipdb
-                ipdb.set_trace()
-                
-                #print("    " + req_key + " depends on " + str(dep) + " but pip has not selected ANY version of " + package_name)
-                #exception_string = '   TENTATIVE Model ' + str(self.find_dep_conflicts) + ' conflict detected:\n    '
-                #exception_string += req_key + " depends on " + str(dep)
-                #exception_string += " but pip has not selected ANY version of " + package_name
-                #exception_string += "\n   pip's install candidates: " str(candidates_chosen_by_pip)
-                #self._s_report_conflict(True, exception_string)
-                #raise DependencyConflictError(exception_string)
                 raise
 
               # filtered_output from specset.filter is a generator.
@@ -469,11 +456,11 @@ class RequirementSet(object):
                 # each package only. filtering the choices for each package
                 # should produce 1 or 0 results.
                 assert( len(filtered) == 1 )
-                #print ("    Satisfied: " + req_key + "'s dependency on " + str(dep) + " has been met by pip's choice of version " + filtered[0])
               else:
-                exception_string = '   Model ' + str(self.find_dep_conflicts) + ' conflict detected:\n    '
-                exception_string += req_key + " depends on " + str(dep)
-                exception_string += " and pip has selected inconsistent version " + versions_chosen_by_pip[package_name]
+                exception_string = '   Model ' + str(self.find_dep_conflicts) \
+                    + ' conflict detected:\n    ' + req_key + "depends " + \
+                    "on " + str(dep) + " and pip has selected inconsistent" + \
+                    " version " + versions_chosen_by_pip[package_name]
                 self._s_report_conflict(True, exception_string)
                 raise DependencyConflictError(exception_string)
 
@@ -745,14 +732,11 @@ class RequirementSet(object):
             req_to_install.version = dist.version # <~> Add version info to this install requirement, to be used later in conflict model 3 checking.
 
             def add_req(subreq):
-                #import ipdb # <~>
-                #ipdb.set_trace() # <~>
                 sub_install_req = InstallRequirement(
                     str(subreq),
                     req_to_install,
                     isolated=self.isolated,
                     wheel_cache=self._wheel_cache,
-                    #version=dist.version, # <~> for addition of version info to InstallRequirement - see change to InstallRequirement class (req_install.py) # Nope, this would be wrong - would be adding depending install requirement's version to depended-on install requirement. Correct way added. Leaving this commented out here in case I need it later.
                 )
                 more_reqs.extend(self.add_requirement(
                     sub_install_req, req_to_install.name))
@@ -784,7 +768,7 @@ class RequirementSet(object):
                 
 
                 # <~> -------------------------------
-                # <~> adding package dependency recording
+                # adding package dependency recording
                 #     (This obviously needs to be tidied up! Bad big O, etc.)
                 #     JSON can't use a tuple-keyed dictionary, so for the dependencies
                 #       dict, I'm using a single string with parens. (See distkey below.)
@@ -793,52 +777,59 @@ class RequirementSet(object):
                 #     I did not want to make a mess of pip's normal return stack, so I
                 #       didn't take the most natural route of returning objects.
                 # <~> -------------------------------
-                #ipdb.set_trace()
                 if self.find_dep_conflicts in [1, 2, 3]:
-                  import time as stdlib_time
-                  #print("  Code sanity check: File " + __file__ + " modified date is: " + stdlib_time.ctime(os.path.getmtime(__file__)))
-                  #ipdb.set_trace()
-                  ## Todo: here, need to save information about the initial requirements,
-                  ##   since it's not apparently possible to retrieve dist info for them
-                  ##   later, when we need it to store conflict information.
+
+                  ## Todo: here, need to save information about the initial
+                  ## requirements,   since it's not apparently possible to
+                  ## retrieve dist info for them   later, when we need it to
+                  ## store conflict information.
                   if req_to_install.comes_from is None:
-                    # If self._s_initial_install_requirement_key is already defined, assert False.
-                    # My code assumes we are instructed to install only one package (using --find-dep-conflicts, etc.)
+                    # My code assumes we are instructed to install only one
+                    # package (using --find-dep-conflicts, etc.)
+                    # Therefore, _s_initial_install_requirement_key should not
+                    # yet be defined.
                     try:
                       self._s_initial_install_requirement_key
+
                     except AttributeError:
                       pass  # Good, it's not already defined.
+
                     else:
-                      #ipdb.set_trace()
-                      assert False, "<~> We should never encounter a second initial install requirement. This code is written to handle one initial install requirement. If this is reached, perhaps I've made a bad assumption about when comes_from is set?"
+                      assert False, ' <~> We should never encounter a ' + \
+                          'second initial install requirement. This code ' + \
+                          'is written to handle one initial install ' + \
+                          'requirement. If this is reached, perhaps I have' + \
+                          ' made a bad assumption about when comes_from is' + \
+                          ' set?'
                     # Now save the initial requirement.
-                    self._s_initial_install_requirement_key = _s_get_distkey(dist)
+                    self._s_initial_install_requirement_key = get_distkey(dist)
 
                   dist_reqs = dist.requires(available_requested)
-                  global dependencies_by_dist # rushing for now
-                  # Ensure that the dependency dictionary is defined, importing it from its file if not.
-                  _s_ensure_dependencies_global_defined(self.dependencies_db_file)
 
-                  distkey = _s_get_distkey(dist)
+                  global dependencies_by_dist # from scraper module
+
+                  distkey = get_distkey(dist)
                 
-                  # <~> Adding a temp and switching up the control structure to get around an issue noted in daily notes,
-                  #       near end of day Wed Jan 13 2016. See daily notes.
-                  #     This is not excellent because of the equality check between the temp and the db.
-                  #     It is not exactly what is needed, I don't think.... But rushing right now and must fix later.
-                  #     It will err on the side of extra work, not the side of being wrong.
+                  # <~> Adding a temp and switching up the control structure to
+                  # get around an issue noted in daily notes, near end of day
+                  # Wed Jan 13 2016. See daily notes.
+                  # This is not excellent because of the equality check between
+                  # the temp and the db.
+                  # It is not exactly what is needed, I don't think... but
+                  # rushing right now and must fix later. It will err on the
+                  # side of extra work, not the side of being wrong.
+
                   this_dist_deps_temp = []
                   for subreq in dist_reqs:
-                    this_dist_deps_temp.append( [subreq.project_name.lower(), str(subreq.specifier)] ) #subreq.specs] ) # now using lowercase; now using list for equality test since the json load yields lists, too /:
-                  # If the deps we just found are not the same as those in the dep database (dictionary), overwrite and write to database.
-                  if distkey not in dependencies_by_dist or not _s_deps_are_equal(dependencies_by_dist[distkey], this_dist_deps_temp):
+                    this_dist_deps_temp.append( [subreq.project_name.lower(),
+                        str(subreq.specifier)] )
+                  # If the deps we just found are not the same as those in the
+                  # dep database (dictionary), overwrite and write to database.
+                  if distkey not in dependencies_by_dist or not \
+                      deps_are_equal(dependencies_by_dist[distkey],
+                      this_dist_deps_temp):
                     dependencies_by_dist[distkey] = this_dist_deps_temp
                     print("    " + str(dist) + " depends on " + str(dist_reqs))
-                    # <~> Write the dependency data from the global back to file.
-                    #     This is exceedingly often, but I would rather not lose any dependency data,
-                    #       and I would also rather not have an enormous try/except that writes and
-                    #       then re-raises.
-                    _s_write_dependencies_global(self.dependencies_db_file)
-
 
                 # <~> -------------------------------
                 # <~> end - of package dependency recording section
@@ -846,21 +837,45 @@ class RequirementSet(object):
 
                 for subreq in dist.requires(available_requested): # dist.requires returns all the requirements parsed for this dist
 
-                    # <~> -------------------------------
-                    # <~> adding conflict detection
-                    # <~> -------------------------------
-                    # Does this subreq's package name exist in the existing requirements for this requirement set?
-                    # if subreq.key in [v.req.key for v in self.requirements.values()]:
-                    #   print("    <~> Potential conflict detected: pre-existing requirement.")
-                    if self.find_dep_conflicts in [1, 2]:
-                      for old_install_req in self.requirements.values():
+                  # <~> -------------------------------
+                  # <~> adding conflict detection
+                  # <~> -------------------------------
+                  # Does this subreq's package name exist in the existing requirements for this requirement set?
+                  # if subreq.key in [v.req.key for v in self.requirements.values()]:
+                  #   print("    <~> Potential conflict detected: pre-existing requirement.")
+                  if self.find_dep_conflicts in [1, 2]:
+                    for old_install_req in self.requirements.values():
 
-                        if old_install_req.req.project_name == subreq.project_name:
-                          # CONFLICT MODEL 1 CODE FOLLOWS:
-                          if self.find_dep_conflicts == 1 and old_install_req.req.specs == subreq.specs: # Conflict Type 1 and A-OK.
-                            #print("    <~> Debug Info: Multiple packages to be installed have the same dependency, but the requirement specification is the same. All is well.")
+                      if old_install_req.req.project_name == subreq.project_name:
+                        # CONFLICT MODEL 1 CODE FOLLOWS:
+                        if self.find_dep_conflicts == 1 and old_install_req.req.specs == subreq.specs: # Conflict Type 1 and A-OK.
+                          pass
+                        elif self.find_dep_conflicts == 1: # Conflict Type 1 and NOT OK.
+                          exception_string = '   Model ' + str(self.find_dep_conflicts) + ' conflict detected:\n    '
+                          if old_install_req.comes_from is None:
+                            exception_string += 'original instruction included requirement '
+                          else:
+                            exception_string += 'First, found that ' + old_install_req.comes_from.name + ' had requirement '
+                          exception_string += str(old_install_req.req)
+                          exception_string += '\n    Then, found that ' + str(dist) +' has requirement '+ str(subreq) + '\n'
+                          self._s_report_conflict(True, exception_string)
+                          raise DependencyConflictError(exception_string)
+
+                        # END OF CONFLICT MODEL 1 CODE
+                        # CONFLICT MODEL 2 CODE FOLLOWS
+                        else: # Else we're using conflict model 2
+                          # Here is where we need to test to see if pip.index.PackageFinder.find_requirement returns
+                          #   the same link for the new subreq and for the old_install_req it matches.
+                          # If so, we continue along happily.
+                          # If not, we have encountered a conflict of type 2.
+                          assert(self.find_dep_conflicts == 2) # Shouldn't be able to get to this spot in the code unless find_dep_conflicts is 2.
+                          new_link = finder.find_requirement(InstallRequirement(subreq, None), False) # <~> Later comment: I have a vague suspicion this line may have unintended consequences. The instantiation of a temporary, throw-away InstallRequirement may impact other things. No clear evidence of impact yet. Investigate later.
+                          old_link = finder.find_requirement(old_install_req, False)
+                          if new_link == old_link:
+                            # Conflict Type 2 and A-OK.
                             pass
-                          elif self.find_dep_conflicts == 1: # Conflict Type 1 and NOT OK.
+                          else: # Conflict Type 2 and NOT OK.
+                            #ipdb.set_trace()
                             exception_string = '   Model ' + str(self.find_dep_conflicts) + ' conflict detected:\n    '
                             if old_install_req.comes_from is None:
                               exception_string += 'original instruction included requirement '
@@ -868,42 +883,16 @@ class RequirementSet(object):
                               exception_string += 'First, found that ' + old_install_req.comes_from.name + ' had requirement '
                             exception_string += str(old_install_req.req)
                             exception_string += '\n    Then, found that ' + str(dist) +' has requirement '+ str(subreq) + '\n'
+                            exception_string += 'Link Resolution:\n      Old req link: '+str(old_link)+'\n      New req link: '+str(new_link)+'\n'
                             self._s_report_conflict(True, exception_string)
                             raise DependencyConflictError(exception_string)
-                          # END OF CONFLICT MODEL 1 CODE
-                          # Else we're using conflict model 2
-                          # CONFLICT MODEL 2 CODE FOLLOWS
-                          else:
-                            # Here is where we need to test to see if pip.index.PackageFinder.find_requirement returns
-                            #   the same link for the new subreq and for the old_install_req it matches.
-                            # If so, we continue along happily.
-                            # If not, we have encountered a conflict of type 2.
-                            assert(self.find_dep_conflicts == 2) # Shouldn't be able to get to this spot in the code unless find_dep_conflicts is 2.
-                            new_link = finder.find_requirement(InstallRequirement(subreq, None), False) # <~> Later comment: I have a vague suspicion this line may have unintended consequences. The instantiation of a temporary, throw-away InstallRequirement may impact other things. No clear evidence of impact yet. Investigate later.
-                            old_link = finder.find_requirement(old_install_req, False)
-                            if new_link == old_link:
-                              # Conflict Type 2 and A-OK.
-                              #print("    <~> Debug Info: Multiple packages to be installed have the same dependency, but the first-choice package selected by pip for both packages resolves to the same one. old_link=" + str(old_link) + " and new_link=" + str(new_link))
-                              pass
-                            else: # Conflict Type 2 and NOT OK.
-                              #ipdb.set_trace()
-                              exception_string = '   Model ' + str(self.find_dep_conflicts) + ' conflict detected:\n    '
-                              if old_install_req.comes_from is None:
-                                exception_string += 'original instruction included requirement '
-                              else:
-                                exception_string += 'First, found that ' + old_install_req.comes_from.name + ' had requirement '
-                              exception_string += str(old_install_req.req)
-                              exception_string += '\n    Then, found that ' + str(dist) +' has requirement '+ str(subreq) + '\n'
-                              exception_string += 'Link Resolution:\n      Old req link: '+str(old_link)+'\n      New req link: '+str(new_link)+'\n'
-                              self._s_report_conflict(True, exception_string)
-                              raise DependencyConflictError(exception_string)
-                          # END OF CONFLICT MODEL 2 CODE
-                        # end of if there is a package name collision in dependencies  
-                      # end of loop over each pre-existing install requirement
-                    # <~> -------------------------------
-                    # <~> end - of conflict detection section
-                    # <~> -------------------------------
-                    add_req(subreq) # and here, we add them to the requirement set via helper function above
+                        # END OF CONFLICT MODEL 2 CODE
+                      # end of if there is a package name collision in dependencies  
+                    # end of loop over each pre-existing install requirement
+                  # <~> -------------------------------
+                  # <~> end - of conflict detection section
+                  # <~> -------------------------------
+                  add_req(subreq) # and here, we add them to the requirement set via helper function above
 
             # cleanup tmp src
             self.reqs_to_cleanup.append(req_to_install)
@@ -998,11 +987,6 @@ class RequirementSet(object):
       assert(conflict_exists in [True, False]) # Expecting a boolean.
       assert(type(exception_string) is str) # Expecting a string.
 
-      # TODO: Consider turning this back on and taking log location as a parameter to pip.
-      #if conflict_exists:
-      #  with open(_S_DEPENDENCIES_CONFLICT_LOG_FILENAME,"a") as fobj_conflicts_log:
-      #    fobj_conflicts_log.write(exception_string)
-
       # <~> Fetch initial install requirement, stored earlier.
       try:
         self._s_initial_install_requirement_key
@@ -1010,100 +994,18 @@ class RequirementSet(object):
         assert False, "<~> Coding error."+str(exc)
 
       global conflicts_by_dist
-      _s_ensure_dep_conflicts_global_defined(self.find_dep_conflicts, self.conflicts_db_file)
 
-      ### Turns out we can't use get_dist(). Temp file is deleted? Not treated as a valid dist? Dist has ambiguous semantics, perhaps?
-      ##initial_req_distkey = _s_get_distkey(initial_req.get_dist())
-      conflicts_by_dist[self._s_initial_install_requirement_key] = conflict_exists
-      print("  Adding " + self._s_initial_install_requirement_key + " to Model " + str(self.find_dep_conflicts) + " conflicts db. (Conflict: " + str(conflict_exists) + ")")
-      _s_write_dep_conflicts_global(self.find_dep_conflicts, self.conflicts_db_file)
+      # Turns out we can't use get_dist(). Temp file is deleted?
+      # Not treated as a valid dist? Dist has ambiguous semantics, perhaps?
+      conflicts_by_dist[self._s_initial_install_requirement_key] = \
+          conflict_exists
       
+      print("  Adding " + self._s_initial_install_requirement_key +
+          " to Model " + str(self.find_dep_conflicts) + " conflicts db. "
+          "(Conflict: " + str(conflict_exists) + ")")
   
       
 # <~> end of class RequirementSet
 
 
 
-# <~> Helper functions to determine the key for a given distribution to be used in the
-#       dependency conflict db and the dependencies db.
-#     Updating to make lowercase.
-#     Splitting into two calls to allow for use on either a dist object or just name and version strings.
-def _s_get_distkey(dist):
-  #return dist.project_name.lower() + "(" + dist.version + ")"
-  return _s_distkey_format(dist.project_name, dist.version)
-def _s_distkey_format(name, version):
-  return name.lower() + "(" + version + ")"
-
-
-# <~> Helper function to write the dependencies global to its file.
-def _s_write_dependencies_global(dependencies_db_filename):
-  global dependencies_by_dist
-  with open(dependencies_db_filename,"w") as fobj:
-    json.dump(dependencies_by_dist, fobj)
-
-# <~> Helper function to ensure that the global dependencies dictionary is defined,
-#       importing it now if not.
-def _s_ensure_dependencies_global_defined(dependencies_db_filename):
-  global dependencies_by_dist
-  try: # If the global is not defined yet, load the contents of the json file.
-    dependencies_by_dist
-  except NameError:
-    dependencies_by_dist = None
-    # Fill with JSON data from file.
-    # If the dependencies db file doesn't exist, create it (open in append mode and close).
-    if not os.path.exists(dependencies_db_filename):
-      open(dependencies_db_filename, 'a').close()
-    # Open the dependencies db file and then try parsing it as a json.
-    # If the parse fails, just make an empty dict instead, and we'll overwrite the file later.
-    with open(dependencies_db_filename,"r") as fobj:
-      try:
-        dependencies_by_dist = json.load(fobj)
-      except ValueError:
-        dependencies_by_dist = dict() # If it was invalid or empty, replace with empty.
-
-# <~> Helper function to ensure that the global dependency conflicts dictionary is defined,
-#       importing it now if not.
-def _s_ensure_dep_conflicts_global_defined(conflict_model, conflicts_db_filename):
-  # Ensure we're only using one conflict model. These are bools.
-  #assert( use_model_1 + use_model_2 + use_model_3 == 1 )
-  assert(conflict_model in [1,2,3])
-
-  global conflicts_by_dist
-  try: # If the global is not defined yet, load the contents of the json file.
-    conflicts_by_dist
-  except NameError:
-    conflicts_by_dist = None
-    # <~> Fill with JSON data from file.
-    # If the conflicts db file doesn't exist, create it (open in append mode and close).
-    if not os.path.exists(conflicts_db_filename):
-      open(conflicts_db_filename, 'a').close()
-    # Open the conflicts db file and then try parsing it as a json.
-    # If the parse fails, just make an empty dict instead, and we'll overwrite the file later.
-    with open(conflicts_db_filename,"r") as fobj:
-      try:
-        conflicts_by_dist = json.load(fobj)
-      except ValueError:
-        conflicts_by_dist = dict() # If it was invalid or empty, replace with empty.
-
-# <~> Helper function to write the dependencies conflicts global to its file.
-def _s_write_dep_conflicts_global(conflict_model, conflicts_db_filename):
-  ## Ensure we're only using one conflict model. These are bools.
-  #assert( use_model_1 + use_model_2 + use_model_3 == 1 )
-  assert(conflict_model in [1,2,3])
-
-  global conflicts_by_dist
-
-  with open(conflicts_db_filename,"w") as fobj:
-    json.dump(conflicts_by_dist, fobj)
-
-def _s_deps_are_equal(deps_a, deps_b):
-  """
-  <~> Returns true if given lists of dependencies that are equivalent
-  (regardless of order).
-  
-  Update: This is now QUITE A BIT simpler. It may not really be necessary
-  anymore. I can strip ALLLL the ugliness and replace it with THIS (which
-  didn't work before for unpleasant Reasons explained in comments in previous
-  versions).
-  """
-  return sorted(deps_a) == sorted(deps_b)
