@@ -28,11 +28,10 @@ import pip._vendor.packaging.specifiers # <~> for SpecifierSet, for conflict mod
 
 # <~> Import some functions and globals from the scraper calling us.
 # Should probably do this only when --find-dep-conflicts option is on. TODO.
-from pypi_depresolve.scrape_deps_and_detect_conflicts import \
-    dependencies_by_dist, \
-    conflicts_by_dist, \
-    get_distkey, \
-    deps_are_equal, \
+from depresolve.scrape_deps_and_detect_conflicts import dependencies_by_dist
+from depresolve.scrape_deps_and_detect_conflicts import conflicts_db
+from depresolve.scrape_deps_and_detect_conflicts import get_distkey
+from depresolve.scrape_deps_and_detect_conflicts import deps_are_equal
 
 
 
@@ -993,11 +992,11 @@ class RequirementSet(object):
       except AttributeError as exc:
         assert False, "<~> Coding error."+str(exc)
 
-      global conflicts_by_dist
+      global conflicts_db
 
       # Turns out we can't use get_dist(). Temp file is deleted?
       # Not treated as a valid dist? Dist has ambiguous semantics, perhaps?
-      conflicts_by_dist[self._s_initial_install_requirement_key] = \
+      conflicts_db[self._s_initial_install_requirement_key] = \
           conflict_exists
       
       print("  Adding " + self._s_initial_install_requirement_key +
