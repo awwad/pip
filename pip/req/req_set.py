@@ -1096,80 +1096,14 @@ def _s_write_dep_conflicts_global(conflict_model, conflicts_db_filename):
   with open(conflicts_db_filename,"w") as fobj:
     json.dump(conflicts_by_dist, fobj)
 
-# <~> Returns true if given lists of dependencies that are equivalent (regardless of order).
-#     Handles the stupid problem of dealing with lists with lists-or-tuples in them, each
-#       potentially empty or with lists-or-tuples in them. Problem due to json loading and
-#       pip providing tuple specs.
-#
-#     Expects e.g.:
-#        a =  [ [ 'foo', [ '==', '1.0' ] ],
-#               [ 'bar', [] ],
-#               [ 'bat', ['>=', '1.57'], ['<=', '1.57.99'] ] 
-#
-#        b =  [ ( 'bat', ('>=', '1.57'), ('<=', '1.57.99') ), 
-#               ( 'foo', ( '==', '1.0' ) ),
-#               ( 'bar', [] ) ]
-#
-#     Specifically, it returns true if every element in the first list is in the second list
-#       and vice versa. Also returns true if both are empty lists.
-#     This is not fast, but it's a hell of a lot faster than writing a large json to disk.
-#
-#     This is now irrelevant due to the fact that we have to deal with lists-or-tuples at two
-#     levels, but here it is for posterity:
-#       set(deps_a) == set(deps_b)         would be nice, but lists aren't hashable
-#       sorted(deps_a) == sorted(deps_b)   may be faster - O( NlogN ) rather than O( N^2 )
-#       Yeah, let's go with sorted instead of original solution. Faster and tidier.
-#
-#    Alas.
-#
 def _s_deps_are_equal(deps_a, deps_b):
-  #
-  # Okay, I can't just go with sorted(a) == sorted(b) because the specs that are saved inside some
-  #   of the lists are tuples, from pip core code. I could re-encode those, but none of my code cared
-  #   and I think the best solution here is just to write this so that it doesn't care if we're using
-  #   tuples or lists, either. So that means an element by element comparison, minding that:
-  #     - some deps lists may be empty
-  #     - some deps lists may contain elements with empty list specs
-  #     - some deps lists may contain elements with specs that are in a tuple
-  #     - some deps lists may contain elements with specs that are in a list
-  #
-  # String equality doesn't care about '' vs u'', so at least we don't have to worry about that. /:
-  #
-  #return sorted(deps_a) == sorted(deps_b)  # (so much for our one line function)
-  sorted_a = sorted(deps_a)
-  sorted_b = sorted(deps_b)
-
-  if len(sorted_a) != len(sorted_b):
-    print("  X ): Debug: Stored deps and freshly harvested deps ARE NOT EQUAL: \n    " + str(deps_a) + "\n    " + str(deps_b))
-    return False
-
-  else:
-    for i in range(len(sorted_a)): # compare dep list element by element (single dep)
-      # simplest element:      [ 'bar', [] ]
-      # most complex element:  [ 'bat', ['>=', '1.57'], ['<=', '1.57.99'] ]
-      element_a_pkgname = sorted_a[i][0].lower()
-      element_b_pkgname = sorted_b[i][0].lower()
-      element_a_specs = sorted(sorted_a[i][1]) # sort the specs in case there are two in different orders /:
-      element_b_specs = sorted(sorted_b[i][1]) # not going to assume that pip always puts them in the same order
-      # If dependend-on package name does not match or the number of spec tuples/lists doesn't match
-      if element_a_pkgname != element_b_pkgname or len(element_a_specs) != len(element_b_specs):
-          print("  X ): Debug: Stored deps and freshly harvested deps ARE NOT EQUAL: \n    " + str(deps_a) + "\n    " + str(deps_b))
-          return False
-      # else check each spec
-      for j in range(len(element_a_specs)): # for each spec (e.g. [">", "0.1"] )
-        if not element_a_specs[j] and not element_b_specs[j]:
-          continue
-        elif not element_a_specs[j] or not element_b_specs[j]:
-          print("  X ): Debug: Stored deps and freshly harvested deps ARE NOT EQUAL: \n    " + str(deps_a) + "\n    " + str(deps_b))
-          return False
-        else:
-          operator_a = element_a_specs[j][0]
-          operator_b = element_b_specs[j][0]
-          operand_a = element_a_specs[j][1]
-          operand_b = element_b_specs[j][1]
-          if operator_a != operator_b or operand_a != operand_b:
-            print("  X ): Debug: Stored deps and freshly harvested deps ARE NOT EQUAL: \n    " + str(deps_a) + "\n    " + str(deps_b))
-            return False
-
-    return True
-  assert(False)
+  """
+  <~> Returns true if given lists of dependencies that are equivalent
+  (regardless of order).
+  
+  Update: This is now QUITE A BIT simpler. It may not really be necessary
+  anymore. I can strip ALLLL the ugliness and replace it with THIS (which
+  didn't work before for unpleasant Reasons explained in comments in previous
+  versions).
+  """
+  return sorted(deps_a) == sorted(deps_b)
