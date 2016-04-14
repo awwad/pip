@@ -426,20 +426,10 @@ class RequirementSet(object):
             for dep in dependencies_by_dist[req_key]:
               # Check to see if that dependency is met by something in the set of install requirements pip chose.
               package_name = dep[0].lower()
-              list_of_spec_tuples = dep[1]
-              specstring = ""
-              # dep is a 2-tuple, first entry package name, second entry list of tuples (each constituting a specifier)
-              #  e.g.  ('motor', [ [ '>', '0.4.0' ], [ '<', '0.6.6'] ])
-              #    indicating: depends on package motor, version > 0.4.0, version < 0.6.6
+              #list_of_spec_tuples = dep[1]
+              specstring = dep[1]
+
               # Start by characterizing the dependency as a package name and SpecifierSet.
-              for specification in list_of_spec_tuples: # for each specification (example specification: [ '>', '0.4.0' ]) in the list of specs:
-                # append the operator and operand (version string) back together, with distinct specifiers separated by commas.
-                specstring += specification[0] + specification[1] + ","
-
-              # Trim trailing comma after loop.
-              if specstring.endswith(','):
-                specstring = specstring[:-1]
-
               specset = pip._vendor.packaging.specifiers.SpecifierSet(specstring)
 
               # Now we have a SpecifierSet for this dependency.
@@ -801,7 +791,7 @@ class RequirementSet(object):
                 #     A JSON is remarkably inefficient for frequent rewriting, so this
                 #       should probably be changed to pickle or sqlite or something.
                 #     I did not want to make a mess of pip's normal return stack, so I
-                #       didn't take that (most natural) route.
+                #       didn't take the most natural route of returning objects.
                 # <~> -------------------------------
                 #ipdb.set_trace()
                 if self.find_dep_conflicts in [1, 2, 3]:
@@ -838,7 +828,7 @@ class RequirementSet(object):
                   #     It will err on the side of extra work, not the side of being wrong.
                   this_dist_deps_temp = []
                   for subreq in dist_reqs:
-                    this_dist_deps_temp.append( [subreq.project_name.lower(), subreq.specs] ) # now using lowercase; now using list for equality test since the json load yields lists, too /:
+                    this_dist_deps_temp.append( [subreq.project_name.lower(), str(subreq.specifier)] ) #subreq.specs] ) # now using lowercase; now using list for equality test since the json load yields lists, too /:
                   # If the deps we just found are not the same as those in the dep database (dictionary), overwrite and write to database.
                   if distkey not in dependencies_by_dist or not _s_deps_are_equal(dependencies_by_dist[distkey], this_dist_deps_temp):
                     dependencies_by_dist[distkey] = this_dist_deps_temp
