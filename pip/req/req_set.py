@@ -26,15 +26,15 @@ from pip.vcs import vcs
 import pip._vendor.packaging.specifiers # <~> for SpecifierSet, for conflict model 3 code
 
 
-# <~> Import some functions and globals from the scraper calling us.
+# <~> My intrusions into this foreign module are marked with "<~>".
+#          - Sebastien Awwad (for awwad/depresolve)
+# Import some functions and globals from the scraper calling us.
 # Should probably do this only when --find-dep-conflicts option is on. TODO.
-import scraper_data as scraper
-#from scrape_deps_and_detect_conflicts import dependencies_by_dist
-#from scrape_deps_and_detect_conflicts import conflicts_db
-from scrape_deps_and_detect_conflicts import get_distkey
-from scrape_deps_and_detect_conflicts import distkey_format
-from scrape_deps_and_detect_conflicts import deps_are_equal
-
+import depresolve.depdata as depdata
+from depresolve.depdata import get_distkey_from_dist
+from depresolve.depdata import distkey_format
+from depresolve.depdata import deps_are_equal
+# <~> end
 
 
 logger = logging.getLogger(__name__)
@@ -388,8 +388,6 @@ class RequirementSet(object):
           self._s_report_conflict(False, "")
         
         elif self.find_dep_conflicts == 3:
-          #global dependencies_by_dist
-
           # Here, we process the requirements.
           # self.requirements.keys() yields project names
           # self.requirements.values() yields InstalRequirement values
@@ -421,7 +419,7 @@ class RequirementSet(object):
           # For every pip-selected install requirement:
           for req_key in candidates_chosen_by_pip:
             # For every registered dependency of this sdist in the dependencies db:
-            for dep in scraper.dependencies_by_dist[req_key]:
+            for dep in depdata.dependencies_by_dist[req_key]:
               # Check to see if that dependency is met by something in the set of install requirements pip chose.
               package_name = dep[0].lower()
               #list_of_spec_tuples = dep[1]
@@ -803,19 +801,16 @@ class RequirementSet(object):
                           ' made a bad assumption about when comes_from is' + \
                           ' set?'
                     # Now save the initial requirement.
-                    self._s_initial_install_requirement_key = get_distkey(dist)
+                    self._s_initial_install_requirement_key = \
+                        get_distkey_from_dist(dist)
 
                   dist_reqs = dist.requires(available_requested)
 
-                  #global dependencies_by_dist # from scraper module
+                  distkey = get_distkey_from_dist(dist)
 
-                  print('pip is trying to access scraper globals')
-
-                  distkey = get_distkey(dist)
-                  print('Pip says: len(deps) is ' + str(len(scraper.dependencies_by_dist)))
-
-                  # <~> Adding a temp and switching up the control structure to
-                  # get around an issue noted in daily notes, near end of day
+                  # TODO: Determine if below remains necessary post-refactor.
+                  # Adding a temp and switching up the control structure to get
+                  # around an issue noted in daily notes, near end of day
                   # Wed Jan 13 2016. See daily notes.
                   # This is not excellent because of the equality check between
                   # the temp and the db.
@@ -829,10 +824,10 @@ class RequirementSet(object):
                         str(subreq.specifier)] )
                   # If the deps we just found are not the same as those in the
                   # dep database (dictionary), overwrite and write to database.
-                  if distkey not in scraper.dependencies_by_dist or not \
-                      deps_are_equal(scraper.dependencies_by_dist[distkey],
+                  if distkey not in depdata.dependencies_by_dist or not \
+                      deps_are_equal(depdata.dependencies_by_dist[distkey],
                       this_dist_deps_temp):
-                    scraper.dependencies_by_dist[distkey] = this_dist_deps_temp
+                    depdata.dependencies_by_dist[distkey] = this_dist_deps_temp
                     print("    " + str(dist) + " depends on " + str(dist_reqs))
 
                 # <~> -------------------------------
@@ -986,8 +981,13 @@ class RequirementSet(object):
         self.successfully_installed = to_install
 
 
-    # <~> Class method to report that a given initial requirement has or has not resulted in a dependency conflict.
+
     def _s_report_conflict(self, conflict_exists, exception_string):
+      """
+      <~>
+      Class method to report that a given initial requirement has or has
+      not resulted in a dependency conflict.
+      """
       assert(conflict_exists in [True, False]) # Expecting a boolean.
       assert(type(exception_string) is str) # Expecting a string.
 
@@ -997,19 +997,12 @@ class RequirementSet(object):
       except AttributeError as exc:
         assert False, "<~> Coding error."+str(exc)
 
-      #global conflicts_db
-
       # Turns out we can't use get_dist(). Temp file is deleted?
       # Not treated as a valid dist? Dist has ambiguous semantics, perhaps?
-      scraper.conflicts_db[self._s_initial_install_requirement_key] = \
+      depdata.conflicts_db[self._s_initial_install_requirement_key] = \
           conflict_exists
       
       print("  Adding " + self._s_initial_install_requirement_key +
           " to Model " + str(self.find_dep_conflicts) + " conflicts db. "
           "(Conflict: " + str(conflict_exists) + ")")
-  
-      
-# <~> end of class RequirementSet
-
-
 
