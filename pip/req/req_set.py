@@ -28,10 +28,12 @@ import pip._vendor.packaging.specifiers # <~> for SpecifierSet, for conflict mod
 
 # <~> Import some functions and globals from the scraper calling us.
 # Should probably do this only when --find-dep-conflicts option is on. TODO.
-from depresolve.scrape_deps_and_detect_conflicts import dependencies_by_dist
-from depresolve.scrape_deps_and_detect_conflicts import conflicts_db
-from depresolve.scrape_deps_and_detect_conflicts import get_distkey
-from depresolve.scrape_deps_and_detect_conflicts import deps_are_equal
+import scraper_data as scraper
+#from scrape_deps_and_detect_conflicts import dependencies_by_dist
+#from scrape_deps_and_detect_conflicts import conflicts_db
+from scrape_deps_and_detect_conflicts import get_distkey
+from scrape_deps_and_detect_conflicts import distkey_format
+from scrape_deps_and_detect_conflicts import deps_are_equal
 
 
 
@@ -386,7 +388,7 @@ class RequirementSet(object):
           self._s_report_conflict(False, "")
         
         elif self.find_dep_conflicts == 3:
-          global dependencies_by_dist
+          #global dependencies_by_dist
 
           # Here, we process the requirements.
           # self.requirements.keys() yields project names
@@ -408,7 +410,7 @@ class RequirementSet(object):
           versions_chosen_by_pip = dict() # will also populate this for now. redundant, but convenient at the moment.
           for req in self.requirements.values():
             # Get the key used to indicate that sdist in our dependencies db.
-            req_key = _s_distkey_format(req.name, req.version)
+            req_key = distkey_format(req.name, req.version)
             candidates_chosen_by_pip.append(req_key)
             versions_chosen_by_pip[req.name.lower()] = req.version
           
@@ -419,7 +421,7 @@ class RequirementSet(object):
           # For every pip-selected install requirement:
           for req_key in candidates_chosen_by_pip:
             # For every registered dependency of this sdist in the dependencies db:
-            for dep in dependencies_by_dist[req_key]:
+            for dep in scraper.dependencies_by_dist[req_key]:
               # Check to see if that dependency is met by something in the set of install requirements pip chose.
               package_name = dep[0].lower()
               #list_of_spec_tuples = dep[1]
@@ -805,10 +807,13 @@ class RequirementSet(object):
 
                   dist_reqs = dist.requires(available_requested)
 
-                  global dependencies_by_dist # from scraper module
+                  #global dependencies_by_dist # from scraper module
+
+                  print('pip is trying to access scraper globals')
 
                   distkey = get_distkey(dist)
-                
+                  print('Pip says: len(deps) is ' + str(len(scraper.dependencies_by_dist)))
+
                   # <~> Adding a temp and switching up the control structure to
                   # get around an issue noted in daily notes, near end of day
                   # Wed Jan 13 2016. See daily notes.
@@ -824,10 +829,10 @@ class RequirementSet(object):
                         str(subreq.specifier)] )
                   # If the deps we just found are not the same as those in the
                   # dep database (dictionary), overwrite and write to database.
-                  if distkey not in dependencies_by_dist or not \
-                      deps_are_equal(dependencies_by_dist[distkey],
+                  if distkey not in scraper.dependencies_by_dist or not \
+                      deps_are_equal(scraper.dependencies_by_dist[distkey],
                       this_dist_deps_temp):
-                    dependencies_by_dist[distkey] = this_dist_deps_temp
+                    scraper.dependencies_by_dist[distkey] = this_dist_deps_temp
                     print("    " + str(dist) + " depends on " + str(dist_reqs))
 
                 # <~> -------------------------------
@@ -992,11 +997,11 @@ class RequirementSet(object):
       except AttributeError as exc:
         assert False, "<~> Coding error."+str(exc)
 
-      global conflicts_db
+      #global conflicts_db
 
       # Turns out we can't use get_dist(). Temp file is deleted?
       # Not treated as a valid dist? Dist has ambiguous semantics, perhaps?
-      conflicts_db[self._s_initial_install_requirement_key] = \
+      scraper.conflicts_db[self._s_initial_install_requirement_key] = \
           conflict_exists
       
       print("  Adding " + self._s_initial_install_requirement_key +
