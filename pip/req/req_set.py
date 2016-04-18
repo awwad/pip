@@ -28,13 +28,6 @@ import pip._vendor.packaging.specifiers # <~> for SpecifierSet, for conflict mod
 
 # <~> My intrusions into this foreign module are marked with "<~>".
 #          - Sebastien Awwad (for awwad/depresolve)
-# Import some functions and globals from the scraper calling us.
-# Should probably do this only when --find-dep-conflicts option is on. TODO.
-import depresolve.depdata as depdata
-from depresolve.depdata import get_distkey_from_dist
-from depresolve.depdata import distkey_format
-from depresolve.depdata import deps_are_equal
-# <~> end
 
 
 logger = logging.getLogger(__name__)
@@ -388,6 +381,15 @@ class RequirementSet(object):
           self._s_report_conflict(False, "")
         
         elif self.find_dep_conflicts == 3:
+          # Import some functions and globals from the scraper calling us.
+          # We do not do this at the top of the module because it should only
+          # be required to have depresolve when we're using depresolve, not on
+          # any old pip import or call.
+          import depresolve.depdata as depdata
+          from depresolve.depdata import get_distkey_from_dist
+          from depresolve.depdata import distkey_format
+          from depresolve.depdata import deps_are_equal
+          
           # Here, we process the requirements.
           # self.requirements.keys() yields project names
           # self.requirements.values() yields InstalRequirement values
@@ -778,9 +780,18 @@ class RequirementSet(object):
                 # <~> -------------------------------
                 if self.find_dep_conflicts in [1, 2, 3]:
 
+                  # Import some functions and globals from the scraper calling
+                  # us. We do not do this at the top of the module because it
+                  # should only be required to have depresolve when we're using
+                  # depresolve, not on any old pip import or call.
+                  import depresolve.depdata as depdata
+                  from depresolve.depdata import get_distkey_from_dist
+                  from depresolve.depdata import distkey_format
+                  from depresolve.depdata import deps_are_equal
+
                   ## Todo: here, need to save information about the initial
-                  ## requirements,   since it's not apparently possible to
-                  ## retrieve dist info for them   later, when we need it to
+                  ## requirements, since it's not apparently possible to
+                  ## retrieve dist info for them later, when we need it to
                   ## store conflict information.
                   if req_to_install.comes_from is None:
                     # My code assumes we are instructed to install only one
@@ -991,7 +1002,17 @@ class RequirementSet(object):
       assert(conflict_exists in [True, False]) # Expecting a boolean.
       assert(type(exception_string) is str) # Expecting a string.
 
-      # <~> Fetch initial install requirement, stored earlier.
+      # Import some functions and globals from the scraper calling us.
+      # We do not do this at the top of the module because it should only
+      # be required to have depresolve when we're using depresolve, not on
+      # any old pip import or call.
+      import depresolve.depdata as depdata
+      from depresolve.depdata import get_distkey_from_dist
+      from depresolve.depdata import distkey_format
+      from depresolve.depdata import deps_are_equal
+
+
+      # Fetch initial install requirement, stored earlier.
       try:
         self._s_initial_install_requirement_key
       except AttributeError as exc:
