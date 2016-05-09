@@ -773,10 +773,6 @@ class RequirementSet(object):
                 #     (This obviously needs to be tidied up! Bad big O, etc.)
                 #     JSON can't use a tuple-keyed dictionary, so for the dependencies
                 #       dict, I'm using a single string with parens. (See distkey below.)
-                #     A JSON is remarkably inefficient for frequent rewriting, so this
-                #       should probably be changed to pickle or sqlite or something.
-                #     I did not want to make a mess of pip's normal return stack, so I
-                #       didn't take the most natural route of returning objects.
                 # <~> -------------------------------
                 if self.find_dep_conflicts in [1, 2, 3]:
 
