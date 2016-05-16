@@ -386,9 +386,6 @@ class RequirementSet(object):
           # be required to have depresolve when we're using depresolve, not on
           # any old pip import or call.
           import depresolve.depdata as depdata
-          from depresolve.depdata import get_distkey_from_dist
-          from depresolve.depdata import distkey_format
-          from depresolve.depdata import deps_are_equal
           
           # Here, we process the requirements.
           # self.requirements.keys() yields project names
@@ -410,7 +407,7 @@ class RequirementSet(object):
           versions_chosen_by_pip = dict() # will also populate this for now. redundant, but convenient at the moment.
           for req in self.requirements.values():
             # Get the key used to indicate that sdist in our dependencies db.
-            req_key = distkey_format(req.name, req.version)
+            req_key = depdata.distkey_format(req.name, req.version)
             candidates_chosen_by_pip.append(req_key)
             versions_chosen_by_pip[req.name.lower()] = req.version
           
@@ -781,9 +778,9 @@ class RequirementSet(object):
                   # should only be required to have depresolve when we're using
                   # depresolve, not on any old pip import or call.
                   import depresolve.depdata as depdata
-                  from depresolve.depdata import get_distkey_from_dist
-                  from depresolve.depdata import distkey_format
-                  from depresolve.depdata import deps_are_equal
+
+                  distkey = depdata.normalize_distkey(
+                      depdata.get_distkey_from_dist(dist))
 
                   ## Todo: here, need to save information about the initial
                   ## requirements, since it's not apparently possible to
@@ -807,13 +804,12 @@ class RequirementSet(object):
                           'requirement. If this is reached, perhaps I have' + \
                           ' made a bad assumption about when comes_from is' + \
                           ' set?'
-                    # Now save the initial requirement.
-                    self._s_initial_install_requirement_key = \
-                        get_distkey_from_dist(dist)
+                    # Now save the initial requirement. This value will be an
+                    # index in the conflicts dictionary, so we normalize the
+                    # distkey to make sure it will match whenever we use it.
+                    self._s_initial_install_requirement_key = distkey
 
                   dist_reqs = dist.requires(available_requested)
-
-                  distkey = get_distkey_from_dist(dist)
 
                   # TODO: Determine if below remains necessary post-refactor.
                   # Adding a temp and switching up the control structure to get
@@ -827,12 +823,16 @@ class RequirementSet(object):
 
                   this_dist_deps_temp = []
                   for subreq in dist_reqs:
+                    # Note that I don't do any other normalization of package
+                    # names in this line for fear of breaking data currently -
+                    # just lower. Consider for later.
                     this_dist_deps_temp.append( [subreq.project_name.lower(),
                         str(subreq.specifier)] )
                   # If the deps we just found are not the same as those in the
                   # dep database (dictionary), overwrite and write to database.
                   if distkey not in depdata.dependencies_by_dist or not \
-                      deps_are_equal(depdata.dependencies_by_dist[distkey],
+                      depdata.deps_are_equal(
+                      depdata.dependencies_by_dist[distkey],
                       this_dist_deps_temp):
                     depdata.dependencies_by_dist[distkey] = this_dist_deps_temp
                     print("    " + str(dist) + " depends on " + str(dist_reqs))
@@ -1003,10 +1003,6 @@ class RequirementSet(object):
       # be required to have depresolve when we're using depresolve, not on
       # any old pip import or call.
       import depresolve.depdata as depdata
-      from depresolve.depdata import get_distkey_from_dist
-      from depresolve.depdata import distkey_format
-      from depresolve.depdata import deps_are_equal
-
 
       # Fetch initial install requirement, stored earlier.
       try:
