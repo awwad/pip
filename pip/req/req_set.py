@@ -438,6 +438,15 @@ class RequirementSet(object):
               # (that is, if it has the one version provided still in there),
               # then pip has satisfied the dependency.
 
+              # Before we actually do the filtering, however, we should tell
+              # the SpecifierSet to consider pre-releases. pip does, and so the
+              # pip solution may include pre-releases; however, by default, a
+              # SpecifierSet does not include pre-releases in its filtering -
+              # this has to be turned on in the line below. The upshot is: if
+              # pip decides to include a pre-release in its solution set, who
+              # am I to judge? I just assume it's the right call.
+              specset.prereleases = True
+
               filtered_output = None
               try:
                 filtered_output = specset.filter([versions_chosen_by_pip[package_name]])
