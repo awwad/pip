@@ -411,6 +411,10 @@ class RequirementSet(object):
             candidates_chosen_by_pip.append(req_key)
             versions_chosen_by_pip[req.name.lower()] = req.version
           
+          # Store the list of distributions that pip has selected to install in
+          # order to fulfil this install/download request.
+          self._s_report_solution(candidates_chosen_by_pip)
+
           # Walk through that list and check the dependencies of each item in
           # our dependencies db. If pip has avoided a dependency conflict, all
           # of these dependencies should be satisfied by something in the
@@ -998,6 +1002,32 @@ class RequirementSet(object):
 
 
 
+    def _s_report_solution(self, candidate_set):
+      """
+      <~>
+      Class method to store the set of distributions that pip has selected to
+      fulfil the original install request. If allowed to finish the pip install
+      command, pip would install these. (Or end, if in download mode, with
+      these deemed adequate.)
+      """
+      # Import some functions and globals from the scraper calling us.
+      # We do not do this at the top of the module because it should only
+      # be required to have depresolve when we're using depresolve, not on
+      # any old pip import or call.
+      import depresolve.depdata as depdata
+      # Fetch initial install requirement, stored earlier.
+      try:
+        self._s_initial_install_requirement_key
+      except AttributeError as exc:
+        assert False, "<~> Coding error."+str(exc)
+      depdata.pip_solutions_by_dist[
+          self._s_initial_install_requirement_key] = candidate_set
+
+      print('  Adding ' + self._s_initial_install_requirement_key +
+          ' solution to pip solutions db. Solution is: ' + str(candidate_set))
+
+
+
     def _s_report_conflict(self, conflict_exists, exception_string):
       """
       <~>
@@ -1027,4 +1057,3 @@ class RequirementSet(object):
       print("  Adding " + self._s_initial_install_requirement_key +
           " to Model " + str(self.find_dep_conflicts) + " conflicts db. "
           "(Conflict: " + str(conflict_exists) + ")")
-
